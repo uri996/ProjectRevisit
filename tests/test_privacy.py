@@ -7,6 +7,10 @@ from pathlib import Path
 def test_gitignore_private_data_and_public_source():
     root = Path(__file__).resolve().parents[1]
     protected = [
+        "AGENTS.md",
+        "ui/AGENTS.md",
+        "examples/AGENTS.md",
+        "nested/deeper/AGENTS.md",
         ".env",
         ".env.local",
         "notes.md",
@@ -62,7 +66,6 @@ def test_gitignore_private_data_and_public_source():
         "tests/test_privacy.py",
         "scripts/smoke_runtime.py",
         "README.md",
-        "AGENTS.md",
         "examples/demo_project_alpha.md",
         "examples/demo_project_beta.md",
         ".env.example",
@@ -107,7 +110,6 @@ def test_public_files_do_not_link_internal_records():
     root = Path(__file__).resolve().parents[1]
     candidates = [
         root / "README.md",
-        root / "AGENTS.md",
         root / ".env.example",
         root / "pyproject.toml",
         root / "requirements-lock.txt",

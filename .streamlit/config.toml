@@ -6,6 +6,12 @@ enableXsrfProtection = true
 [browser]
 gatherUsageStats = false
 
+[client]
+toolbarMode = "viewer"
+
 [theme]
 primaryColor = "#287B78"
+paddingTop = "1rem"
 
+[theme.sidebar]
+paddingTop = "0.5rem"

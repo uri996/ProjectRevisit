@@ -6,7 +6,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import streamlit as st
 
 from backend.models import AISettings, AppError
-from backend.services.application import create_application
+from ui.context import application
+from ui.presentation import format_message_time, short_chunk_id
 
 STATUS = {
     "unindexed": "未索引",
@@ -16,11 +17,6 @@ STATUS = {
     "needs_reindex": "需要重新索引",
     "insufficient": "资料不足",
 }
-
-
-@st.cache_resource
-def application():
-    return create_application()
 
 
 def settings_page(app):
@@ -88,6 +84,10 @@ def settings_page(app):
         with st.spinner("正在测试 Embedding 与 LLM…"):
             st.success(app.settings.test_connection(confirmed=consent))
     st.caption("连接测试只使用合成文本，不会读取项目资料。修改表单后请先保存。")
+    with st.expander("高级选项"):
+        st.caption("仅用于本机排查；不会更改或迁移数据目录。完整路径可能包含用户名。")
+        if st.checkbox("显示完整数据路径（可能包含用户名）", key="show_full_data_path"):
+            st.code(app.data_path, language=None)
 
 
 def knowledge_page(app, project_id):
@@ -164,6 +164,7 @@ def knowledge_page(app, project_id):
 
 def chat_page(app, project_id):
     st.header("项目智能问答")
+    st.caption("消息时间按运行本应用电脑的本地时区显示。")
     try:
         settings = app.settings.load()
         st.caption(
@@ -186,16 +187,27 @@ def chat_page(app, project_id):
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
             st.caption(
-                f"{message['created_at']} · {STATUS.get(message['status'], message['status'])}"
+                f"{format_message_time(message['created_at'])} · {STATUS.get(message['status'], message['status'])}"
             )
             if message["citations"]:
                 with st.expander(f"查看本次提供给模型的来源证据（{len(message['citations'])} 条）"):
-                    for citation in message["citations"]:
-                        st.text(f"{citation['source']} · {citation['chunk_id']}")
+                    full_ids = st.checkbox("显示完整 Chunk ID", key=f"citation_ids_{message['id']}")
+                    for i, citation in enumerate(message["citations"]):
+                        if i:
+                            st.divider()
+                        st.text(f"来源：{citation['source']}")
                         st.caption(
-                            citation.get("heading", "")
+                            (
+                                "章节：" + citation["heading"]
+                                if citation.get("heading")
+                                else "无章节标题"
+                            )
                             + (" · 模型标记支持" if citation.get("cited") else " · 检索上下文")
                         )
+                        if full_ids:
+                            st.code(citation["chunk_id"], language=None)
+                        else:
+                            st.caption("片段：" + short_chunk_id(citation["chunk_id"]))
                         st.text(citation["text"])
     question = st.chat_input("询问当前项目…", key=f"question_{project_id}")
     if question:
@@ -205,6 +217,33 @@ def chat_page(app, project_id):
         except AppError:
             pass  # Sanitized failure is persisted and rendered after rerun.
         st.rerun()
+
+
+def render_page(page):
+    app = application()
+    if page == "AI 设置":
+        settings_page(app)
+        return
+    projects = app.projects.list()
+    project_id = st.session_state.get("project_selection")
+    project = next((p for p in projects if p["id"] == project_id), None)
+    if project is None:
+        st.title("欢迎使用 ProjectRevisit")
+        st.info(
+            "先在左侧创建项目，再导入资料、手动建立索引并开始问答。未配置 API 也可以管理项目和文件。"
+        )
+        return
+    st.title(project["name"])
+    if page == "项目概况":
+        docs = app.documents.list(project_id)
+        st.metric("已导入文档", len(docs))
+        st.metric("已完成且兼容的索引", sum(d["status"] == "completed" for d in docs))
+        st.caption("项目 ID：" + project_id)
+        st.info("通过左侧「知识库管理」导入和索引，通过「智能问答」回顾项目。")
+    elif page == "知识库管理":
+        knowledge_page(app, project_id)
+    else:
+        chat_page(app, project_id)
 
 
 def main():
@@ -221,40 +260,22 @@ def main():
             st.session_state["project_selection"] = project_id
             st.rerun()
     projects = app.projects.list()
-    project = None
     if projects:
-        project_id = st.sidebar.selectbox(
+        st.sidebar.selectbox(
             "当前项目",
             [p["id"] for p in projects],
             format_func=lambda x: next(p["name"] for p in projects if p["id"] == x),
             key="project_selection",
         )
-        project = next(p for p in projects if p["id"] == project_id)
-    page = st.sidebar.radio("功能", ["项目概览", "知识库管理", "智能问答", "AI 设置"])
-    if page == "AI 设置":
-        settings_page(app)
-    elif project is None:
-        st.title("欢迎使用 ProjectRevisit")
-        st.info(
-            "先在左侧创建项目，再导入资料、手动建立索引并开始问答。未配置 API 也可以管理项目和文件。"
-        )
-    else:
-        st.title(project["name"])
-        if page == "项目概览":
-            docs = app.documents.list(project_id)
-            st.metric("已导入文档", len(docs))
-            st.metric("已完成且兼容的索引", sum(d["status"] == "completed" for d in docs))
-            st.caption("项目 ID：" + project_id)
-            st.info("通过左侧「知识库管理」导入和索引，通过「智能问答」回顾项目。")
-        elif page == "知识库管理":
-            knowledge_page(app, project_id)
-        else:
-            chat_page(app, project_id)
-    with st.sidebar.expander("本机数据与隐私"):
-        st.text(app.data_path)
-        st.caption(
-            "资料、SQLite、Chroma 和非秘密设置保存在此仓库外目录。API Key 保存于操作系统安全凭据。应用不连接 GitHub。"
-        )
+    page = st.navigation(
+        [
+            st.Page("views/overview.py", title="项目概况", icon="🏠", default=True),
+            st.Page("views/knowledge.py", title="知识库管理", icon="📂"),
+            st.Page("views/chat.py", title="智能问答", icon="💬"),
+            st.Page("views/settings.py", title="AI 设置", icon="⚙️"),
+        ]
+    )
+    page.run()
 
 
 if __name__ == "__main__":
