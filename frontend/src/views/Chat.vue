@@ -1,22 +1,85 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
+import type { ComponentPublicInstance } from "vue";
 import RecommendationPanel from "../components/RecommendationPanel.vue";
+import MarkdownMessage from "../components/MarkdownMessage.vue";
+import ConversationLocator from "../components/ConversationLocator.vue";
 import { api } from "../api";
 import { context, current, errorText, sendQuestion, state } from "../store";
 const recommendationsOpen = ref(window.innerWidth >= 1100),
   viewport = ref<HTMLElement | null>(null),
   stick = ref(true),
   clearConfirm = ref(false);
+const locatorOpen = ref(false),
+  activeMessage = ref<string | null>(null),
+  browsingHistory = ref(false);
+const messageNodes = new Map<string, HTMLElement>();
+const wideQuery = window.matchMedia("(min-width: 1100px)");
+function keepPanelsSeparate() {
+  if (!wideQuery.matches && locatorOpen.value)
+    recommendationsOpen.value = false;
+}
+wideQuery.addEventListener("change", keepPanelsSeparate);
+onBeforeUnmount(() =>
+  wideQuery.removeEventListener("change", keepPanelsSeparate),
+);
+function messageRef(
+  id: string,
+  element: Element | ComponentPublicInstance | null,
+) {
+  if (element instanceof HTMLElement) messageNodes.set(id, element);
+  else messageNodes.delete(id);
+}
+function toggleLocator() {
+  locatorOpen.value = !locatorOpen.value;
+  if (locatorOpen.value && window.innerWidth < 1100)
+    recommendationsOpen.value = false;
+}
+function openRecommendations() {
+  locatorOpen.value = false;
+  recommendationsOpen.value = true;
+}
+function jump(id: string) {
+  const container = viewport.value,
+    target = messageNodes.get(id);
+  if (!container || !target) return;
+  activeMessage.value = id;
+  browsingHistory.value = true;
+  stick.value = false;
+  const top =
+    container.scrollTop +
+    target.getBoundingClientRect().top -
+    container.getBoundingClientRect().top -
+    16;
+  container.scrollTo({
+    top,
+    behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      ? "auto"
+      : "smooth",
+  });
+  if (window.innerWidth < 1100) locatorOpen.value = false;
+}
 const count = computed(
   () =>
     `${state.selected}:${current.value?.messages.length}:${current.value?.pending}`,
 );
 function scrollState() {
   const el = viewport.value;
-  if (el) stick.value = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+  if (el)
+    stick.value =
+      !browsingHistory.value &&
+      el.scrollHeight - el.scrollTop - el.clientHeight < 80;
 }
 async function latest() {
   stick.value = true;
+  browsingHistory.value = false;
   await nextTick();
   viewport.value?.scrollTo({
     top: viewport.value.scrollHeight,
@@ -26,6 +89,7 @@ async function latest() {
 async function ask(question: string) {
   if (!current.value || current.value.task || !question.trim()) return;
   const id = state.selected;
+  locatorOpen.value = false;
   stick.value = true;
   recommendationsOpen.value =
     window.innerWidth < 1100 ? false : recommendationsOpen.value;
@@ -46,6 +110,10 @@ watch(
   () => {
     stick.value = true;
     clearConfirm.value = false;
+    locatorOpen.value = false;
+    activeMessage.value = null;
+    browsingHistory.value = false;
+    messageNodes.clear();
     void latest();
   },
 );
@@ -87,10 +155,21 @@ const time = (value: string) => {
     class="chat-layout"
     :class="{ 'with-recommendations': recommendationsOpen }"
   >
-    <section class="chat-workspace" aria-label="项目聊天">
+    <section
+      class="chat-workspace"
+      aria-label="项目聊天"
+      @keydown.esc="locatorOpen = false"
+    >
       <header class="chat-toolbar">
         <span><span class="status-dot"></span> 基于当前项目资料回答</span>
         <div class="toolbar-actions">
+          <button
+            class="locator-toolbar-button"
+            :aria-expanded="locatorOpen"
+            @click="toggleLocator"
+          >
+            对话定位
+          </button>
           <details class="clear-chat">
             <summary>清空聊天</summary>
             <div class="popover">
@@ -107,14 +186,32 @@ const time = (value: string) => {
               </button>
             </div>
           </details>
-          <button
-            v-if="!recommendationsOpen"
-            @click="recommendationsOpen = true"
-          >
+          <button v-if="!recommendationsOpen" @click="openRecommendations">
             推荐问题 ◇
           </button>
         </div>
       </header>
+      <button
+        class="locator-launch icon"
+        aria-label="打开对话定位"
+        title="对话定位"
+        :aria-expanded="locatorOpen"
+        @click="toggleLocator"
+      >
+        ☷
+      </button>
+      <div
+        v-if="locatorOpen"
+        class="locator-scrim"
+        @click="locatorOpen = false"
+      ></div>
+      <ConversationLocator
+        v-if="locatorOpen"
+        :messages="current.messages"
+        :active-id="activeMessage"
+        @jump="jump"
+        @close="locatorOpen = false"
+      />
       <div
         ref="viewport"
         class="messages"
@@ -140,13 +237,15 @@ const time = (value: string) => {
           <p class="muted small">
             若尚无兼容索引，请先在知识库管理中手动建立索引。
           </p>
-          <button @click="recommendationsOpen = true">浏览推荐问题 ↗</button>
+          <button @click="openRecommendations">浏览推荐问题 ↗</button>
         </div>
         <article
           v-for="message in current.messages"
           :key="message.id"
+          :ref="(element) => messageRef(message.id, element)"
+          :data-message-id="message.id"
           class="message"
-          :class="message.role"
+          :class="[message.role, { located: activeMessage === message.id }]"
         >
           <div class="message-avatar">
             {{ message.role === "user" ? "你" : "↺" }}
@@ -161,7 +260,11 @@ const time = (value: string) => {
                 >资料不足</span
               >
             </div>
-            <div class="message-content">{{ message.content }}</div>
+            <MarkdownMessage
+              v-if="message.role === 'assistant'"
+              :content="message.content"
+            />
+            <div v-else class="message-content">{{ message.content }}</div>
             <details v-if="message.citations.length" class="citations">
               <summary>来源证据 · {{ message.citations.length }} 条</summary>
               <section

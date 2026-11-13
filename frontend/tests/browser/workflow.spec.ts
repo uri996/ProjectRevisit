@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { Buffer } from "node:buffer";
+import { markdownAnswer } from "../fixtures";
+import type { Message } from "../../src/types";
 
 test.afterAll(async ({ request }) => {
   await request.post("/__test__/stop").catch(() => {});
@@ -178,4 +180,270 @@ test("complete Vue + FastAPI workflow with isolated SQLite/Chroma and mock Qwen"
     .getByRole("button", { name: "测试已保存配置的 API 连接", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText("Embedding 与 LLM");
+});
+
+test("readable UI, persistent compact navigation, safe Markdown and stable history location at five widths", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(90000);
+  const origin = "http://127.0.0.1:18765";
+  const longName = "示例项目 A：" + "虚构图书目录".repeat(12);
+  const first = (
+    await (
+      await request.post("/api/projects", {
+        headers: { Origin: origin },
+        data: { name: longName },
+      })
+    ).json()
+  ).id as string;
+  const second = (
+    await (
+      await request.post("/api/projects", {
+        headers: { Origin: origin },
+        data: { name: "示例项目 B（界面验收）" },
+      })
+    ).json()
+  ).id as string;
+  await request.post("/__test__/long-history/" + first);
+  const persisted = (await (
+    await request.get(`/api/projects/${first}/messages`)
+  ).json()) as Message[];
+  const early = persisted.filter((m) => m.role === "user")[3]!;
+  await page.route("**/api/projects/*/messages", async (route) => {
+    const response = await route.fetch();
+    const rows = (await response.json()) as Message[];
+    if (
+      route.request().method() === "GET" &&
+      route.request().url().includes(first)
+    ) {
+      for (const row of rows)
+        if (row.role === "assistant") row.content = markdownAnswer;
+      const answer = rows.find((m) => m.role === "assistant");
+      if (answer)
+        answer.citations = [
+          {
+            source: "catalog.md",
+            heading: "虚构证据",
+            chunk_id: "synthetic-document:synthetic-generation:0",
+            document_id: "synthetic-document",
+            text: "证据原文 **保留原样**，只用于虚构界面测试。",
+            distance: 0.1,
+            cited: true,
+          },
+        ];
+    }
+    await route.fulfill({ response, json: rows });
+  });
+  await page.goto("/chat");
+  await page.locator("#project").selectOption(first);
+  await expect(page.locator(".message")).toHaveCount(80);
+  const calls = await (await request.get("/__test__/counts")).json();
+  const workspaceBefore = await page.locator(".workspace").boundingBox();
+  await page.getByRole("button", { name: "收起导航", exact: true }).click();
+  await expect(page.locator(".app-shell")).toHaveClass(/nav-collapsed/);
+  await page.screenshot({ path: "test-results/nav-collapsed.png" });
+  expect(
+    (await page.locator(".workspace").boundingBox())!.width,
+  ).toBeGreaterThan(workspaceBefore!.width);
+  await expect(
+    page.getByRole("link", { name: "知识库管理", exact: true }),
+  ).toHaveAttribute("title", "知识库管理");
+  await page.reload();
+  await expect(page.locator(".app-shell")).toHaveClass(/nav-collapsed/);
+  await expect(page.locator(".message")).toHaveCount(80);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("projectrevisit.nav-collapsed"),
+    ),
+  ).toBe("true");
+  await page.getByRole("button", { name: "展开项目选择", exact: true }).click();
+  await expect(page.locator("#project")).toBeVisible();
+  if (
+    await page
+      .getByRole("button", { name: "收起推荐面板", exact: true })
+      .count()
+  )
+    await page
+      .getByRole("button", { name: "收起推荐面板", exact: true })
+      .click();
+  for (const width of [1920, 1440, 1024, 760, 480]) {
+    await page.setViewportSize({ width, height: 900 });
+    if (width <= 900)
+      await expect(page.locator(".navigation")).not.toBeInViewport();
+    else {
+      await page.getByRole("button", { name: "收起导航", exact: true }).click();
+      expect((await page.locator(".navigation").boundingBox())!.width).toBe(72);
+      await page.getByRole("button", { name: "展开导航", exact: true }).click();
+    }
+    if (width <= 900) {
+      await page.getByRole("button", { name: "打开导航", exact: true }).click();
+      await expect(page.locator(".navigation")).toBeInViewport();
+      await expect(page.locator("#project")).toBeVisible();
+      await page
+        .locator(".navigation")
+        .getByRole("button", { name: "关闭导航", exact: true })
+        .click();
+      await expect(page.locator(".navigation")).not.toBeInViewport();
+    }
+    const open =
+      width >= 1100
+        ? page.getByRole("button", { name: "打开对话定位", exact: true })
+        : page.getByRole("button", { name: "对话定位", exact: true });
+    await open.click();
+    const directory = page.getByRole("dialog", {
+      name: "对话定位",
+      exact: true,
+    });
+    await expect(directory.locator(".conversation-list button")).toHaveCount(
+      40,
+    );
+    if (width >= 1100) {
+      const locatorBox = (await directory.boundingBox())!;
+      expect(locatorBox.y + locatorBox.height).toBeLessThanOrEqual(
+        (await page.locator(".composer-area").boundingBox())!.y,
+      );
+    }
+    await page.screenshot({ path: `test-results/locator-${width}.png` });
+    const entry = directory.locator(`[data-target-id="${early.id}"]`);
+    await expect(entry).toHaveAttribute("title", early.content);
+    await entry.click();
+    const target = page.locator(`[data-message-id="${early.id}"]`);
+    await expect
+      .poll(async () =>
+        Math.abs(
+          (await target.boundingBox())!.y -
+            (await page.locator(".messages").boundingBox())!.y -
+            16,
+        ),
+      )
+      .toBeLessThan(4);
+    if (width >= 1100)
+      await page
+        .getByRole("button", { name: "关闭对话定位", exact: true })
+        .click();
+    await expect(
+      page.getByRole("button", { name: "↓ 返回最新消息", exact: true }),
+    ).toBeVisible();
+    const answer = page.locator(".markdown-body").nth(3);
+    await expect(answer.locator("h1")).toHaveText("虚构图书目录复盘");
+    await expect(answer.locator("strong").first()).toHaveText("加粗内容");
+    await expect(answer.locator("ol li")).toHaveCount(2);
+    const overflow = await answer.evaluate((el) => {
+      const table = el.querySelector(".markdown-table") as HTMLElement,
+        code = el.querySelector("pre") as HTMLElement;
+      return {
+        table: table.scrollWidth > table.clientWidth,
+        code: code.scrollWidth > code.clientWidth,
+        body: document.documentElement.scrollWidth <= innerWidth,
+      };
+    });
+    expect(overflow.body).toBe(true);
+    expect(overflow.code).toBe(true);
+    if (width <= 1024) expect(overflow.table).toBe(true);
+    expect(
+      await page
+        .locator(
+          ".markdown-body script,.markdown-body img,.markdown-body [onclick],.markdown-body [onerror]",
+        )
+        .count(),
+    ).toBe(0);
+    expect(await page.evaluate(() => "__markdownUnsafe" in window)).toBe(false);
+    await page.screenshot({ path: `test-results/ui-${width}.png` });
+    await page.getByRole("button", { name: "推荐问题 ◇", exact: true }).click();
+    await expect(page.locator(".recommendation-panel")).toBeVisible();
+    await page
+      .getByRole("button", { name: "收起推荐面板", exact: true })
+      .click();
+  }
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.route(`**/api/projects/${first}/questions`, async (route) => {
+    const response = await route.fetch();
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    await route.fulfill({ response });
+  });
+  await page
+    .getByLabel("询问当前项目", { exact: true })
+    .fill("虚构的新增复盘问题");
+  await page.getByRole("button", { name: "发送 ↑", exact: true }).click();
+  await expect(page.locator(".pending")).toBeVisible();
+  await page.getByRole("button", { name: "打开对话定位", exact: true }).click();
+  await page.locator(`[data-target-id="${early.id}"]`).click();
+  await expect
+    .poll(async () =>
+      Math.abs(
+        (await page.locator(`[data-message-id="${early.id}"]`).boundingBox())!
+          .y -
+          (await page.locator(".messages").boundingBox())!.y -
+          16,
+      ),
+    )
+    .toBeLessThan(4);
+  await page.getByRole("button", { name: "关闭对话定位", exact: true }).click();
+  const readingTop = await page
+    .locator(".messages")
+    .evaluate((el) => el.scrollTop);
+  // The new reply arrives while the user reads an earlier question.
+  await expect(page.locator(".pending")).toHaveCount(0);
+  await expect(page.locator(".message")).toHaveCount(82);
+  expect(
+    Math.abs(
+      (await page.locator(".messages").evaluate((el) => el.scrollTop)) -
+        readingTop,
+    ),
+  ).toBeLessThan(4);
+  await page.getByRole("button", { name: "打开对话定位", exact: true }).click();
+  await expect(page.locator(".conversation-list button")).toHaveCount(41);
+  await page.getByRole("button", { name: "关闭对话定位", exact: true }).click();
+  expect(readingTop).toBeGreaterThan(0);
+  await page.locator("#project").selectOption(second);
+  await expect(page.locator(".message")).toHaveCount(0);
+  await page.getByRole("button", { name: "打开对话定位", exact: true }).click();
+  await expect(page.locator(".conversation-list button")).toHaveCount(0);
+  await page.getByRole("button", { name: "关闭对话定位", exact: true }).click();
+  await page.locator("#project").selectOption(first);
+  await page.reload();
+  await expect(page.locator(".message")).toHaveCount(82);
+  await page.getByRole("button", { name: "打开对话定位", exact: true }).click();
+  await expect(page.locator(`[data-target-id="${early.id}"]`)).toHaveAttribute(
+    "title",
+    early.content,
+  );
+  await page.getByRole("button", { name: "关闭对话定位", exact: true }).click();
+  expect((await (await request.get("/__test__/counts")).json()).llm).toBe(
+    calls.llm,
+  );
+  const raw = (await (
+    await request.get(`/api/projects/${first}/messages`)
+  ).json()) as Message[];
+  expect(raw.find((m) => m.id === persisted[1]!.id)?.content).toBe(
+    persisted[1]!.content,
+  );
+  for (const [path, label] of [
+    ["/", "项目概况"],
+    ["/knowledge", "知识库管理"],
+    ["/settings", "AI 设置"],
+  ]) {
+    await page.goto(path!);
+    await expect(page.locator(".page h1")).toBeVisible();
+    if (path === "/")
+      await expect(page.locator(".project-heading")).toHaveAttribute(
+        "title",
+        longName,
+      );
+    if (path === "/knowledge")
+      await expect(page.getByLabel("选择项目资料")).toBeVisible();
+    if (path === "/settings")
+      await expect(
+        page.getByRole("heading", { name: "模型与目标地址", exact: true }),
+      ).toBeVisible();
+    expect(
+      await page
+        .locator(".page h1")
+        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize)),
+    ).toBeGreaterThanOrEqual(22);
+    await page.screenshot({
+      path: `test-results/page-${path === "/" ? "overview" : path!.slice(1)}.png`,
+    });
+  }
 });

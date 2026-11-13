@@ -11,7 +11,9 @@ const indexed = computed(
   <section class="page scroll-area">
     <div class="page-heading">
       <div>
-        <h1>{{ currentProject?.name || "欢迎使用 ProjectRevisit" }}</h1>
+        <h1 class="project-heading" :title="currentProject?.name">
+          {{ currentProject?.name || "欢迎使用 ProjectRevisit" }}
+        </h1>
         <p class="muted">
           从自己的项目资料出发，复盘决策、寻找证据、准备面试。
         </p>

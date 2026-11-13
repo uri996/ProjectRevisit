@@ -5,7 +5,15 @@
   font-synthesis: none;
   --accent: #17695e;
   --line: #dfe7e3;
-  --muted: #6d7f78;
+  --muted: #5e7268;
+  --font-body: 14px;
+  --font-chat: 15px;
+  --font-small: 13px;
+  --font-title: 24px;
+  --font-section: 19px;
+  --space-unit: 4px;
+  font-size: var(--font-body);
+  line-height: 1.6;
 }
 * {
   box-sizing: border-box;
@@ -98,7 +106,7 @@ input[type="checkbox"] {
 }
 label {
   display: block;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
 }
 label input,
@@ -106,13 +114,13 @@ label textarea {
   margin-top: 6px;
 }
 h1 {
-  font-size: 23px;
+  font-size: var(--font-title);
   font-weight: 650;
   line-height: 1.4;
   margin: 0 0 8px;
 }
 h2 {
-  font-size: 16px;
+  font-size: var(--font-section);
   margin: 0 0 14px;
   font-weight: 650;
 }
@@ -125,7 +133,7 @@ p {
 }
 .small,
 small {
-  font-size: 12px;
+  font-size: var(--font-small);
 }
 .truncate {
   overflow: hidden;
@@ -169,22 +177,22 @@ small {
   display: block;
   color: var(--muted);
   font-weight: 400;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 4px;
 }
 .field-label {
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   letter-spacing: 0.08em;
   margin-bottom: 6px;
 }
-nav {
+.navigation nav {
   display: flex;
   flex-direction: column;
   gap: 6px;
   margin-top: 25px;
 }
-nav a {
+.navigation nav a {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -193,17 +201,17 @@ nav a {
   color: #596e62;
   font-size: 14px;
 }
-nav a.active {
+.navigation nav a.active {
   background: white;
   color: #135849;
   box-shadow: 0 1px 4px #24363308;
   font-weight: 600;
 }
-nav a:hover {
+.navigation nav a:hover {
   text-decoration: none;
   background: #e1ece4;
 }
-nav span {
+.navigation nav a > span:first-child {
   font-size: 20px;
 }
 .create-project {
@@ -218,17 +226,17 @@ nav span {
   margin-top: 9px;
   width: 100%;
   background: transparent;
-  font-size: 12px;
+  font-size: 13px;
 }
 .nav-footer {
   margin-top: auto;
   padding-top: 32px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
 }
 .nav-footer small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   margin-top: 6px;
 }
 .status-dot {
@@ -254,7 +262,7 @@ nav span {
   gap: 18px;
   padding: 0 26px;
   border-bottom: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 13px;
   background: #fff;
 }
 .page {
@@ -268,7 +276,7 @@ nav span {
 .page-heading {
   display: flex;
   justify-content: space-between;
-  gap: 20px;
+  gap: calc(var(--space-unit) * 5);
   align-items: flex-start;
   margin-bottom: 24px;
 }
@@ -299,7 +307,7 @@ nav span {
   display: block;
 }
 .metrics span {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
 }
 .steps {
@@ -310,7 +318,7 @@ nav span {
   padding: 5px 0;
 }
 .steps p {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--muted);
   margin: 2px 0;
 }
@@ -323,7 +331,7 @@ nav span {
 .notice {
   border-radius: 8px;
   padding: 10px 13px;
-  font-size: 12px;
+  font-size: 13px;
   overflow-wrap: anywhere;
 }
 .error {
@@ -341,7 +349,7 @@ nav span {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  font-size: 12px;
+  font-size: 13px;
   margin: 16px 0;
 }
 .check input {
@@ -353,7 +361,7 @@ nav span {
 table {
   border-collapse: collapse;
   width: 100%;
-  font-size: 13px;
+  font-size: 14px;
 }
 th,
 td {
@@ -363,7 +371,7 @@ td {
   vertical-align: top;
 }
 th {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   font-weight: 500;
 }
@@ -376,7 +384,7 @@ td {
   color: #5a7163;
   border-radius: 5px;
   padding: 3px 7px;
-  font-size: 10px;
+  font-size: 12px;
   white-space: nowrap;
 }
 .badge.completed {
@@ -389,15 +397,15 @@ td {
 }
 .text-link {
   margin-left: 15px;
-  font-size: 12px;
+  font-size: 13px;
 }
 summary {
   cursor: pointer;
-  font-size: 13px;
+  font-size: 14px;
 }
 pre,
 code {
-  font-size: 11px;
+  font-size: 12px;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -414,6 +422,7 @@ details > section {
   background: #fff;
 }
 .chat-workspace {
+  position: relative;
   flex: 1;
   min-width: 0;
   display: flex;
@@ -428,7 +437,7 @@ details > section {
   padding: 12px 22px;
   border-bottom: 1px solid #edf1ee;
   color: var(--muted);
-  font-size: 11px;
+  font-size: 12px;
   min-height: 54px;
 }
 .toolbar-actions {
@@ -437,13 +446,13 @@ details > section {
   gap: 14px;
 }
 .toolbar-actions button {
-  font-size: 11px;
+  font-size: 12px;
 }
 .clear-chat {
   position: relative;
 }
 .clear-chat summary {
-  font-size: 11px;
+  font-size: 12px;
 }
 .popover {
   position: absolute;
@@ -470,7 +479,7 @@ details > section {
   margin: clamp(20px, 8vh, 100px) auto;
   text-align: center;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 14px;
 }
 .chat-empty h1 {
   color: #304d40;
@@ -499,7 +508,7 @@ details > section {
   place-items: center;
   background: #e6eee8;
   color: #356850;
-  font-size: 12px;
+  font-size: 13px;
 }
 .message.user .message-avatar {
   background: #f0f1f4;
@@ -514,16 +523,16 @@ details > section {
   align-items: center;
   flex-wrap: wrap;
   gap: 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
   margin: 3px 0 9px;
 }
 .message-meta time {
-  font-size: 10px;
+  font-size: 12px;
 }
 .message-content {
-  font-size: 14px;
-  line-height: 1.85;
+  font-size: var(--font-chat);
+  line-height: 1.75;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -540,13 +549,13 @@ details > section {
   background: #fafcf9;
 }
 .citations summary {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--accent);
 }
 .citation {
   padding: 10px 0;
   border-top: 1px solid var(--line);
-  font-size: 12px;
+  font-size: 13px;
 }
 .citation blockquote {
   margin: 8px 0;
@@ -583,16 +592,16 @@ details > section {
   max-height: 140px;
   min-height: 54px;
   padding: 6px 9px;
-  font-size: 13px;
+  font-size: 14px;
 }
 .send {
   white-space: nowrap;
-  font-size: 12px;
+  font-size: 13px;
   margin: 0 0 1px;
 }
 .composer-note {
-  font-size: 10px;
-  color: #87988c;
+  font-size: 12px;
+  color: #60756a;
   text-align: center;
   margin: 8px 0 0;
 }
@@ -600,13 +609,13 @@ details > section {
   display: block;
   margin: -4px auto 9px;
   border-radius: 20px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .processing {
   max-width: 850px;
   margin: 10px auto;
   color: var(--accent);
-  font-size: 12px;
+  font-size: 13px;
   padding-left: 40px;
 }
 .spinner {
@@ -642,11 +651,11 @@ details > section {
   border-bottom: 1px solid var(--line);
 }
 .panel-heading strong {
-  font-size: 14px;
+  font-size: 18px;
 }
 .panel-heading small {
   display: block;
-  font-size: 10px;
+  font-size: 12px;
   color: var(--muted);
   margin-top: 4px;
 }
@@ -667,7 +676,7 @@ details > section {
 }
 .tabs button {
   flex: 1;
-  font-size: 11px;
+  font-size: 12px;
   border: 0;
   padding: 8px 4px;
   background: none;
@@ -684,7 +693,7 @@ details > section {
   gap: 9px;
   width: 100%;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.7;
   padding: 12px;
   margin: 10px 0;
@@ -697,7 +706,7 @@ details > section {
 .subtle {
   border: 0;
   background: none;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--accent);
   padding: 5px 0;
 }
@@ -710,7 +719,7 @@ details > section {
   margin-top: 20px;
 }
 .section-heading h2 {
-  font-size: 13px;
+  font-size: 18px;
   margin: 0;
 }
 .recommendation-form {
@@ -721,10 +730,10 @@ details > section {
 }
 .recommendation-form textarea,
 .recommendation-form input {
-  font-size: 12px;
+  font-size: 13px;
 }
 .recommendation-form .primary {
-  font-size: 12px;
+  font-size: 13px;
   width: 100%;
 }
 .personal-question {
@@ -735,7 +744,7 @@ details > section {
   margin-bottom: 7px;
 }
 .personal-question p {
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.65;
 }
 .personal-question .badge {
@@ -744,7 +753,7 @@ details > section {
   overflow-wrap: anywhere;
 }
 .question-number {
-  font-size: 11px;
+  font-size: 12px;
   padding-top: 1px;
   color: var(--muted);
 }
@@ -809,7 +818,7 @@ details > section {
     padding: 22px;
   }
 }
-@media (max-width: 700px) {
+@media (max-width: 900px) {
   .app-shell {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -858,7 +867,7 @@ details > section {
     font-size: 20px;
   }
   .page-heading p {
-    font-size: 12px;
+    font-size: 13px;
   }
   .metrics {
     gap: 8px;
@@ -870,14 +879,14 @@ details > section {
     font-size: 24px;
   }
   .metrics span {
-    font-size: 10px;
+    font-size: 12px;
   }
   .card {
     padding: 17px;
   }
   .chat-toolbar {
     padding: 11px 12px;
-    font-size: 10px;
+    font-size: 12px;
   }
   .messages {
     padding: 18px 14px;
@@ -886,10 +895,10 @@ details > section {
     padding: 10px 12px;
   }
   .composer-note {
-    font-size: 9px;
+    font-size: 12px;
   }
   .composer textarea {
-    font-size: 12px;
+    font-size: 13px;
   }
   .message {
     gap: 8px;
@@ -899,7 +908,7 @@ details > section {
     height: 25px;
   }
   .message-content {
-    font-size: 13px;
+    font-size: 14px;
   }
   .form-grid {
     grid-template-columns: 1fr;
@@ -916,5 +925,386 @@ details > section {
   }
   .spinner {
     animation: none;
+  }
+}
+
+/* Shared readable typography and stable compact navigation. */
+.app-bar {
+  justify-content: flex-start;
+  font-size: var(--font-small);
+}
+.current-project-name {
+  margin-left: auto;
+  max-width: 48%;
+}
+.page-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+.project-heading {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-toggle {
+  min-width: 36px;
+  min-height: 36px;
+  flex-shrink: 0;
+}
+.navigation nav .nav-label {
+  font-size: var(--font-body);
+}
+.brand-icon {
+  flex-shrink: 0;
+}
+.brand-text {
+  min-width: 0;
+}
+.composer textarea,
+.recommendation-form textarea,
+.recommendation-form input {
+  font-size: var(--font-body);
+}
+.composer-note,
+.message-meta,
+.message-meta time {
+  font-size: 12px;
+}
+.chat-toolbar {
+  font-size: 13px;
+  min-height: 56px;
+  flex-wrap: wrap;
+}
+.toolbar-actions {
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.toolbar-actions button,
+.clear-chat summary {
+  font-size: 13px;
+  min-height: 36px;
+  padding: 7px 9px;
+}
+.chat-empty h1 {
+  font-size: 24px;
+}
+.citations > summary {
+  min-height: 34px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.citations > summary:hover {
+  color: #104f46;
+}
+.citations[open] > summary {
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+.citation details > summary {
+  padding: 5px 0;
+  min-height: 30px;
+}
+.citation strong {
+  overflow-wrap: anywhere;
+}
+.file-input {
+  display: block;
+  width: 100%;
+  border: 1px dashed #afc6b9;
+  border-radius: 9px;
+  padding: 10px;
+  background: #f7faf8;
+  font-size: 14px;
+}
+.file-input::file-selector-button {
+  font: inherit;
+  border: 1px solid #c7d7ce;
+  border-radius: 7px;
+  padding: 8px 12px;
+  margin-right: 12px;
+  background: white;
+  color: var(--accent);
+  cursor: pointer;
+}
+@media (min-width: 901px) {
+  .app-shell.nav-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+  .nav-collapsed .navigation {
+    padding: 24px 10px;
+    align-items: stretch;
+  }
+  .nav-collapsed .brand {
+    justify-content: center;
+    margin-bottom: 12px;
+  }
+  .nav-collapsed .brand-text,
+  .nav-collapsed .nav-label {
+    display: none;
+  }
+  .nav-collapsed .navigation nav a {
+    justify-content: center;
+    padding: 10px;
+  }
+  .nav-collapsed .navigation nav a > span:first-child {
+    font-size: 22px;
+  }
+  .project-shortcut {
+    width: 100%;
+    min-height: 36px;
+  }
+}
+
+/* Markdown is parser-generated; source HTML and remote images are disabled. */
+.markdown-body {
+  white-space: normal;
+  min-width: 0;
+  max-width: 100%;
+}
+.markdown-body > :first-child {
+  margin-top: 0;
+}
+.markdown-body > :last-child {
+  margin-bottom: 0;
+}
+.markdown-body p {
+  margin: 0 0 0.8em;
+  line-height: inherit;
+}
+.markdown-body h1,
+.markdown-body h2,
+.markdown-body h3,
+.markdown-body h4 {
+  line-height: 1.5;
+  margin: 1.15em 0 0.6em;
+}
+.markdown-body h1 {
+  font-size: 22px;
+}
+.markdown-body h2 {
+  font-size: 20px;
+}
+.markdown-body h3,
+.markdown-body h4 {
+  font-size: 18px;
+}
+.markdown-body ul,
+.markdown-body ol {
+  padding-left: 1.65em;
+  margin: 0.5em 0 0.9em;
+}
+.markdown-body li {
+  margin: 0.3em 0;
+}
+.markdown-body li > p {
+  margin-bottom: 0.4em;
+}
+.markdown-body li ul,
+.markdown-body li ol {
+  margin-bottom: 0.4em;
+}
+.markdown-body blockquote {
+  margin: 0.8em 0;
+  padding: 8px 16px;
+  border-left: 3px solid #a4c8b4;
+  background: #f5f9f6;
+}
+.markdown-body pre {
+  max-width: 100%;
+  overflow: auto;
+  overscroll-behavior-inline: contain;
+  background: #f1f5f2;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin: 0.9em 0;
+  font-size: 13px;
+}
+.markdown-body pre,
+.markdown-body pre code {
+  white-space: pre;
+  overflow-wrap: normal;
+  word-break: normal;
+  line-height: 1.65;
+}
+.markdown-body :not(pre) > code {
+  font-size: 0.9em;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: #eef3ef;
+  white-space: break-spaces;
+}
+.markdown-body a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.markdown-table {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  margin: 0.9em 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.markdown-body table {
+  width: max-content;
+  min-width: 100%;
+  font-size: 14px;
+}
+.markdown-body td,
+.markdown-body th {
+  min-width: 110px;
+  max-width: 320px;
+  padding: 9px 12px;
+  white-space: normal;
+}
+.markdown-body th {
+  background: #f0f5f1;
+  color: #355546;
+  font-weight: 600;
+}
+
+/* History navigation floats inside the chat workspace, never the whole page. */
+.locator-launch {
+  position: absolute;
+  top: 76px;
+  right: 14px;
+  z-index: 4;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--line);
+  background: #ffffffed;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px #173e2410;
+}
+.locator-toolbar-button,
+.locator-scrim {
+  display: none;
+}
+.conversation-locator {
+  position: absolute;
+  right: 16px;
+  top: 76px;
+  bottom: 240px;
+  z-index: 8;
+  width: min(330px, calc(100% - 32px));
+  max-height: 560px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #c4d7cb;
+  border-radius: 12px;
+  background: white;
+  box-shadow: 0 10px 35px #163e2626;
+  overflow: hidden;
+}
+.locator-heading {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.locator-heading strong {
+  font-size: 18px;
+}
+.locator-heading button,
+.brand > button {
+  min-width: 36px;
+  min-height: 36px;
+}
+.locator-heading small {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  margin-top: 3px;
+}
+.conversation-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  gap: 4px;
+  margin: 0;
+  padding: 10px;
+}
+.conversation-list button {
+  display: flex;
+  gap: 10px;
+  text-align: left;
+  flex-shrink: 0;
+  border-color: transparent;
+  padding: 10px;
+  width: 100%;
+}
+.round-number {
+  color: var(--muted);
+  font-size: 12px;
+  flex: 0 0 25px;
+  padding-top: 2px;
+}
+.round-preview {
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.conversation-list button.selected {
+  background: #e8f3ec;
+  border-color: #a9cbb8;
+}
+.message.located .message-body {
+  outline: 2px solid #9dc7ae;
+  outline-offset: 7px;
+  border-radius: 5px;
+}
+@media (max-width: 1099px) {
+  .locator-launch {
+    display: none;
+  }
+  .locator-toolbar-button {
+    display: inline-block;
+  }
+  .locator-scrim {
+    display: block;
+    position: absolute;
+    inset: 0;
+    z-index: 11;
+    background: #173e2425;
+  }
+  .conversation-locator {
+    right: 0;
+    top: 0;
+    bottom: 0;
+    max-height: 100%;
+    width: min(370px, calc(100% - 16px));
+    border-radius: 0;
+    z-index: 12;
+  }
+}
+@media (max-width: 900px) {
+  .app-shell.nav-collapsed {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .chat-toolbar {
+    padding: 8px 12px;
+    gap: 4px;
+  }
+  .toolbar-actions {
+    gap: 4px;
+  }
+  .message-content {
+    font-size: var(--font-chat);
+  }
+  .page-heading h1 {
+    font-size: 22px;
+  }
+  .recommendation-panel {
+    width: min(360px, 96%);
   }
 }

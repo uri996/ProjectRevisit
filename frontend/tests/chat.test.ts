@@ -159,3 +159,78 @@ it("generation requires explicit consent and is not repeated by a rerender", asy
   });
   await flush();
 });
+
+it("locates stable message IDs in the independent viewport and does not follow new messages while reading history", async () => {
+  const p = context("a");
+  p.messages = [
+    {
+      id: "question-first",
+      role: "user",
+      content: "虚构的较早问题".repeat(20),
+      created_at: "2026-01-01T00:00:00Z",
+      status: "completed",
+      citations: [],
+    },
+    {
+      id: "answer-first",
+      role: "assistant",
+      content: "**虚构回答**",
+      created_at: "2026-01-01T00:00:01Z",
+      status: "completed",
+      citations: [],
+    },
+    {
+      id: "question-later",
+      role: "user",
+      content: "较新的虚构问题",
+      created_at: "2026-01-01T00:01:00Z",
+      status: "completed",
+      citations: [],
+    },
+  ];
+  app = createApp(Chat);
+  app.mount(host);
+  await flush();
+  const viewport = host.querySelector(".messages") as HTMLElement;
+  const target = host.querySelector(
+    '[data-message-id="question-first"]',
+  ) as HTMLElement;
+  vi.spyOn(viewport, "getBoundingClientRect").mockReturnValue({
+    top: 100,
+  } as DOMRect);
+  vi.spyOn(target, "getBoundingClientRect").mockReturnValue({
+    top: 500,
+  } as DOMRect);
+  viewport.scrollTop = 200;
+  (host.querySelector(".locator-launch") as HTMLButtonElement).click();
+  await nextTick();
+  const entry = host.querySelector(
+    '[data-target-id="question-first"]',
+  ) as HTMLButtonElement;
+  expect(entry.title).toBe(p.messages[0]!.content);
+  expect(entry.textContent).toContain("…");
+  vi.mocked(viewport.scrollTo).mockClear();
+  entry.click();
+  await nextTick();
+  expect(viewport.scrollTo).toHaveBeenCalledWith({
+    top: 584,
+    behavior: "smooth",
+  });
+  expect(target.classList.contains("located")).toBe(true);
+  p.messages.push({
+    id: "answer-new",
+    role: "assistant",
+    content: "新来的虚构回答",
+    created_at: "2026-01-01T00:02:00Z",
+    status: "completed",
+    citations: [],
+  });
+  await flush();
+  expect(viewport.scrollTo).toHaveBeenCalledTimes(1);
+  state.selected = "b";
+  await flush();
+  expect(host.querySelector('[data-target-id="question-first"]')).toBeNull();
+  (host.querySelector(".locator-launch") as HTMLButtonElement).click();
+  await nextTick();
+  expect(host.querySelectorAll(".conversation-list button")).toHaveLength(0);
+});

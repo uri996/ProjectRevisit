@@ -1,11 +1,42 @@
 <script setup lang="ts">
-import { onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useRoute } from "vue-router";
 import { api } from "./api";
 import { errorText, loadProjects, selectProject, state } from "./store";
 const name = ref(""),
   creating = ref(false),
   menu = ref(false);
+const mobileQuery = window.matchMedia("(max-width: 900px)");
+const mobile = ref(mobileQuery.matches);
+const collapsed = ref(false);
+try {
+  collapsed.value =
+    localStorage.getItem("projectrevisit.nav-collapsed") === "true";
+} catch {
+  /* optional UI preference */
+}
+const projectName = computed(
+  () =>
+    state.projects.find((p) => p.id === state.selected)?.name || "请先创建项目",
+);
+function setCollapsed(value: boolean) {
+  collapsed.value = value;
+  try {
+    localStorage.setItem("projectrevisit.nav-collapsed", String(value));
+  } catch {
+    /* optional UI preference */
+  }
+}
+function toggleNavigation() {
+  if (mobile.value) menu.value = !menu.value;
+  else setCollapsed(!collapsed.value);
+}
+function resized() {
+  mobile.value = mobileQuery.matches;
+  menu.value = false;
+}
+mobileQuery.addEventListener("change", resized);
+onBeforeUnmount(() => mobileQuery.removeEventListener("change", resized));
 const route = useRoute();
 const links = [
   ["/", "项目概况", "◫"],
@@ -38,12 +69,20 @@ onMounted(async () => {
 });
 </script>
 <template>
-  <div class="app-shell">
-    <div v-if="menu" class="scrim" @click="menu = false"></div>
-    <aside class="navigation" :class="{ open: menu }">
+  <div class="app-shell" :class="{ 'nav-collapsed': collapsed && !mobile }">
+    <div v-if="menu && mobile" class="scrim" @click="menu = false"></div>
+    <aside
+      id="app-navigation"
+      class="navigation"
+      :class="{ open: menu }"
+      aria-label="应用导航"
+      @keydown.esc="menu = false"
+    >
       <div class="brand">
         <span class="brand-icon">↺</span>
-        <div>ProjectRevisit<small>项目复盘 · 面试准备</small></div>
+        <div class="brand-text">
+          ProjectRevisit<small>项目复盘 · 面试准备</small>
+        </div>
         <button
           class="mobile-only icon"
           @click="menu = false"
@@ -52,11 +91,24 @@ onMounted(async () => {
           ×
         </button>
       </div>
-      <label class="field-label" for="project">当前项目</label>
+      <button
+        v-if="collapsed && !mobile"
+        class="project-shortcut icon"
+        aria-label="展开项目选择"
+        :title="projectName + ' · 切换或创建项目'"
+        @click="setCollapsed(false)"
+      >
+        ▾
+      </button>
+      <label v-show="!collapsed || mobile" class="field-label" for="project"
+        >当前项目</label
+      >
       <select
+        v-show="!collapsed || mobile"
         id="project"
         aria-label="当前项目"
         :value="state.selected"
+        :title="projectName"
         @change="selectProject(($event.target as HTMLSelectElement).value)"
       >
         <option v-if="!state.projects.length" value="">暂无项目</option>
@@ -70,12 +122,18 @@ onMounted(async () => {
           :key="link[0]"
           :to="link[0]!"
           :class="{ active: route.path === link[0] }"
+          :aria-label="link[1]"
+          :title="link[1]"
           @click="menu = false"
-          ><span>{{ link[2] }}</span
-          >{{ link[1] }}</RouterLink
+          ><span aria-hidden="true">{{ link[2] }}</span
+          ><span class="nav-label">{{ link[1] }}</span></RouterLink
         >
       </nav>
-      <form class="create-project" @submit.prevent="create">
+      <form
+        v-show="!collapsed || mobile"
+        class="create-project"
+        @submit.prevent="create"
+      >
         <label for="new-project">创建项目</label
         ><input
           id="new-project"
@@ -89,7 +147,7 @@ onMounted(async () => {
       </form>
       <p v-if="state.error" role="alert" class="error">{{ state.error }}</p>
       <button v-if="state.error" @click="loadProjects">重试加载</button>
-      <div class="nav-footer">
+      <div v-show="!collapsed || mobile" class="nav-footer">
         <span class="status-dot"></span> 本机运行 · 资料留在本机<small
           >索引与 AI 请求需手动触发</small
         >
@@ -98,16 +156,30 @@ onMounted(async () => {
     <main class="workspace">
       <header class="app-bar">
         <button
-          class="mobile-only icon"
-          @click="menu = true"
-          aria-label="打开导航"
+          class="icon nav-toggle"
+          @click="toggleNavigation"
+          :aria-label="
+            mobile
+              ? menu
+                ? '关闭导航'
+                : '打开导航'
+              : collapsed
+                ? '展开导航'
+                : '收起导航'
+          "
+          :title="
+            mobile ? '打开或关闭导航' : collapsed ? '展开导航' : '收起导航'
+          "
+          :aria-expanded="mobile ? menu : !collapsed"
+          aria-controls="app-navigation"
         >
           ☰</button
         ><span>{{ links.find((l) => l[0] === route.path)?.[1] }}</span
-        ><span class="muted truncate">{{
-          state.projects.find((p) => p.id === state.selected)?.name ||
-          "请先创建项目"
-        }}</span>
+        ><span
+          class="muted truncate current-project-name"
+          :title="projectName"
+          >{{ projectName }}</span
+        >
       </header>
       <RouterView />
     </main>

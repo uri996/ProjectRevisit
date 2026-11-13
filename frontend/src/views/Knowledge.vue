@@ -110,6 +110,7 @@ async function index() {
       <div class="card">
         <h2>导入文档</h2>
         <input
+          class="file-input"
           aria-label="选择项目资料"
           type="file"
           accept=".md,.txt"
