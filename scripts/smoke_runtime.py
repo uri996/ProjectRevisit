@@ -1,5 +1,6 @@
-"""Start an isolated Streamlit server with synthetic/temp data, check health, stop it."""
+"""Check the default API and bundled Vue app in an isolated temporary data space."""
 
+import json
 import os
 import socket
 import subprocess
@@ -13,7 +14,7 @@ from urllib.request import ProxyHandler, build_opener
 
 def main():
     root = Path(__file__).resolve().parents[1]
-    with tempfile.TemporaryDirectory(prefix="project-rag-smoke-") as temp:
+    with tempfile.TemporaryDirectory(prefix="projectrevisit-smoke-") as temp:
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
@@ -23,13 +24,10 @@ def main():
         process = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "streamlit",
-                "run",
-                "ui/app.py",
-                "--server.headless=true",
-                f"--server.port={port}",
-                "--server.address=127.0.0.1",
+                "scripts/launch_windows.py",
+                "--port",
+                str(port),
+                "--no-browser",
             ],
             cwd=root,
             env=env,
@@ -41,19 +39,17 @@ def main():
             deadline = time.monotonic() + 30
             while time.monotonic() < deadline:
                 if process.poll() is not None:
-                    raise RuntimeError("Streamlit exited before becoming healthy")
+                    raise RuntimeError("Local app exited before healthy; build frontend first")
                 try:
-                    with opener.open(
-                        f"http://127.0.0.1:{port}/_stcore/health", timeout=1
-                    ) as response:
-                        if response.status == 200 and response.read() == b"ok":
-                            print(
-                                "Streamlit runtime health: PASS (isolated temporary data, no AI calls)"
-                            )
-                            return
+                    with opener.open(f"http://127.0.0.1:{port}/api/health", timeout=1) as response:
+                        assert response.status == 200 and json.load(response) == {"status": "ok"}
+                    with opener.open(f"http://127.0.0.1:{port}/chat", timeout=1) as response:
+                        assert b"ProjectRevisit" in response.read()
+                    print("FastAPI + Vue health: PASS (isolated temporary data, no AI calls)")
+                    return
                 except (URLError, OSError):
                     time.sleep(0.2)
-            raise RuntimeError("Streamlit health check timed out")
+            raise RuntimeError("Local app health check timed out")
         finally:
             process.terminate()
             try:

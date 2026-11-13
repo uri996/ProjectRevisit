@@ -1,15 +1,15 @@
 # ProjectRevisit v0.1
 
-ProjectRevisit 是一款本地项目知识检索与面试复习助手。使用 Streamlit、Python Services、LangChain、Chroma、SQLite 和阿里云百炼。所有日常操作均有中文图形界面入口；不需要 Docker 或云服务器。
+ProjectRevisit 是一款本地项目知识检索与面试复习助手。使用 Vue 3、TypeScript、Vite、FastAPI、Python Services、LangChain、Chroma、SQLite 和阿里云百炼。所有日常操作均有中文界面；不需要 Docker、账号或云服务器。旧 Streamlit 界面仅保留为回退入口。
 
 ## Windows 10 安装与启动
 
-建议使用 **64 位 Python 3.12**。32 位 Python 不适合 Chroma 的二进制依赖。
+建议使用 **64 位 Python 3.12** 和 **Node.js 24 LTS（24.12+）**。32 位 Python 不适合 Chroma 的二进制依赖。Node/npm 仅用于首次安装、开发和重新构建，日常启动只需 Python 与已构建的前端。
 
 安装依赖后，可双击 `start.bat`，或者在项目目录执行：
 
 ```powershell
-.\.venv\Scripts\python.exe -m streamlit run ui/app.py
+.\.venv\Scripts\python.exe scripts/launch_windows.py
 ```
 
 全新机器首次安装：先安装 Python 3.12 x64，然后在项目目录执行：
@@ -19,12 +19,18 @@ py -3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements-lock.txt
 .\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m streamlit run ui/app.py
+cd frontend
+npm ci
+npm run build
+cd ..
+.\.venv\Scripts\python.exe scripts/launch_windows.py
 ```
 
 `requirements-lock.txt` 固定 Windows/Python 3.12 使用的依赖版本。可省略锁文件安装这一步，直接安装项目声明的兼容版本范围，但这样解析到的依赖可能不同。
 
-浏览器访问 **http://127.0.0.1:8501**。以后双击 `start.bat` 即可启动，启动窗口使用纯文本输出并保留错误信息。停止时在启动窗口按 **Ctrl+C**。服务仅监听本机回环地址，请勿将其暴露到公网。
+浏览器访问 **http://127.0.0.1:8765**。以后双击 `start.bat` 即可启动；一个 Python 进程同时提供 API 和 Vue 生产资源，并在健康检查成功后打开浏览器。窗口保留错误，缺少前端构建时会提示构建命令。停止时按 **Ctrl+C**，无需管理额外的 Vite 进程。`--no-browser` 可禁用自动打开，`--port` 可更换本机端口。
+
+开发时分别运行 `.\.venv\Scripts\python.exe scripts/launch_windows.py --api-only --no-browser` 和 `cd frontend; npm run dev`，访问 `http://127.0.0.1:5173`。Vite 仅监听本机并代理 `/api` 至 8765。旧版回退命令：`.\.venv\Scripts\python.exe scripts/launch_streamlit.py`，访问 8501；两个入口使用相同数据空间，请避免同时对同一项目执行付费操作。
 
 ## 首次使用
 
@@ -34,7 +40,7 @@ py -3.12 -m venv .venv
 4. 如需验证，勾选连接测试费用提示，再点击“测试已保存配置的 API 连接”。只发送合成文本，各调用一次 Embedding 与 LLM；可能产生费用。
 5. 选择项目，在“知识库管理”中批量选择 UTF-8 `.md` / `.txt`，点击“保存上传文件”。上传仅保存在本机，此时不会发送 Embedding 请求。
 6. 选择要索引的文件，核对外部目标地址与模型，勾选发送文本确认，再点击“建立索引 / 重新索引”。只有此时发送文档分块。
-7. 进入“智能问答”输入问题。消息时间按运行应用电脑的本地时区显示。展开来源证据可查看文件名、章节、简短片段标识和原文，勾选“显示完整 Chunk ID”可查看完整标识。切换项目后只显示对应项目的对话。
+7. 进入“智能问答”输入问题。消息时间按浏览器本地时区显示。展开来源证据可查看文件名、章节和原文，继续展开“完整 Chunk ID”可查看标识。切换项目后只显示对应项目的对话，旧请求完成后只更新原项目。
 8. 同名文件的内容变化会更新该文档并标记“需要重新索引”；相同字节内容在同项目内去重。未重新索引的更新文件不会参与检索。
 9. 更换 LLM 不影响索引。更改 Embedding、维度、地址或分块配置后会要求手动重新索引，不会自动发送资料或删除旧向量。
 
@@ -42,11 +48,11 @@ py -3.12 -m venv .venv
 
 ## 推荐问题
 
-在“智能问答”展开“不知道问什么？试试推荐问题”，选择“项目复盘”或“面试准备”。默认显示三道基础问题，可勾选显示全部；浏览基础推荐不需要 API Key，也不调用 API。
+在“智能问答”右侧推荐面板选择“项目复盘”或“面试准备”。默认显示三道基础问题，可展开全部；浏览基础推荐不需要 API Key，也不调用 API。消息与推荐分别滚动，输入框固定在聊天区底部。窄屏使用可关闭的推荐抽屉，移动端导航也可收起。
 
 展开“根据简历生成”，填写简短项目介绍和目标岗位（例如示例项目 A 的虚构图书目录工具、后端开发），勾选发送与费用确认，再点击“生成 / 重新生成问题”。应用复用 AI 设置中当前的 Qwen 模型、目标地址与系统安全凭据，仅发送这两项输入，不读取知识库或聊天，不生成答案，也不声明真实面试命中率。返回 5–10 道结构化问题，每道包含考察方向和简短理由；格式错误或请求失败不会覆盖上次成功结果，可手动重试。
 
-在“已保存的个性化问题”中查看结果。每个项目最近一次成功生成的问题、对应描述及目标岗位保存在现有私人数据目录的 SQLite 中，重新进入项目后恢复；浏览、刷新或切换页面不会重新生成。重新生成仅更新当前项目的推荐，不覆盖聊天记录或索引。数据库首次运行新版时只新增推荐表，不删除或重建已有表。
+在右侧“个性化推荐”中查看已保存结果。每个项目最近一次成功生成的问题、对应描述及目标岗位保存在现有私人数据目录的 SQLite 中，重新进入项目后恢复；浏览、刷新或切换页面不会重新生成。重新生成仅更新当前项目的推荐，不覆盖聊天或索引。本次界面迁移不增加或修改 SQLite 表结构。
 
 **点击任意推荐问题会直接使用当前项目的正常 RAG 问答，可能产生问答费用**：问题与回答进入原聊天记录，来源证据照常展示，可继续自由追问。没有兼容索引时沿用资料不足提示，请先在“知识库管理”手动建立索引。个性化问题及其理由只是提问建议，不作为项目事实或检索证据。没有可用 API Key 或推荐生成失败时，基础推荐仍可使用。
 
@@ -78,13 +84,15 @@ Windows 默认私人数据目录：
   locks/
 ```
 
-侧栏不展示数据路径。如需本机排查，请在“AI 设置 → 高级选项”中主动勾选“显示完整数据路径”。原始上传字节、元数据、聊天和引用都在上述数据目录中；仓库中只保留源码、测试和人工示例。
+侧栏不展示数据路径。如需本机排查，请在“AI 设置 → 高级选项”主动点击“主动查看完整数据路径”。原始上传字节、元数据、聊天、推荐和引用都在上述数据目录中；仓库中只保留源码、测试和人工示例。Windows Keyring 服务标识仍是 `ProjectRAGAssistant.v0.1`。
 
-项目选择保存在当前浏览器会话中，切换功能页面会保留选择；完整刷新或新开浏览器会话后默认选择列表中的首个项目。不同会话的项目选择、输入草稿等临时状态互不共享。项目文件和聊天记录仍保存在本机，刷新不会删除它们。
+当前项目 UUID 保存在标签页的 sessionStorage，导航和刷新时恢复；没有已保存选择的新会话默认选择首个项目。提问草稿和编辑中的表单仅保留在页面内存，刷新不保存。浏览器存储不保存资料、简历、聊天或 API Key。密钥输入仅临时用于提交本机后端，提交后清空；已保存密钥永不返回浏览器。
 
 可在启动前设置 `PROJECT_RAG_DATA_DIR` 指定其他仓库外目录；这会打开一个独立的数据空间，**不会自动迁移原数据**。指向本仓库内部会明确拒绝启动。API Key 不在该目录，而由操作系统安全凭据保存。安全凭据不可用时明确报错，不会降级保存到 JSON、SQLite 或 `.env`。
 
 本地保存、GitHub 上传与第三方 API 请求是三件事。本应用不连接 GitHub。建立索引时会向配置的 API 发送分块；聊天时会发送问题、受限历史与本次证据。Chroma 与 Streamlit 使用统计已关闭，HTTP 请求不跟随重定向。不要在系统上开启 SDK 调试日志来处理私人资料。
+
+FastAPI 默认只监听 127.0.0.1，限制 Host 为 127.0.0.1 / localhost；写接口要求来自当前本机应用端口或 Vite 5173 的 Origin，不允许任意跨域来源。前端不直接连接 Qwen、Chroma 或 SQLite。校验错误不回显输入，日志不输出 API Key、私人路径或资料。
 
 `.gitignore` 排除虚拟环境、工具缓存、数据库、Chroma、上传、日志、私人配置及默认的 Markdown/TXT；Markdown 文档仅放行根目录 README 和两个指定的虚构示例。Agent 指导文件和开发记录整目录仅保留在本地，不纳入版本控制；无秘密的依赖锁文件可以提交。**不要把私人资料放进公开源码或示例中**。使用 Git 时，提交前执行：
 
@@ -99,11 +107,13 @@ git diff --cached --name-only
 ## 架构
 
 ```text
-ui/app.py -> backend/services/ -> backend/rag/ + backend/storage/
-                                       -> SQLite / 文件 / Chroma / 百炼
+frontend/src/ -> HTTP /api -> backend/api/ -> backend/services/
+                                               -> backend/rag/ + backend/storage/
+                                               -> SQLite / 文件 / Chroma / 百炼
 ```
 
-- `services/application.py` 组装应用；UI 只调用 services，负责显示、控件和临时状态。
+- `frontend/src/api.ts` 封装请求；`store.ts` 按项目维护临时状态；Vue Router 提供概况、知识库、问答和设置页面。
+- `backend/api/` 定义 Pydantic 契约、路由、本机访问边界和请求互斥；`services/application.py` 组装原有 Service，API 不重写业务。
 - `project_service.py` 创建 UUID 项目；`document_service.py` 验证上传、去重、处理索引状态和版本切换。
 - `rag/loader.py` 正常化 UTF-8 和换行，`chunker.py` 保留 Markdown 标题路径，`provider.py` 是可替换的 Embedding/LLM 边界。
 - `storage/vector_store.py` 使用独立的“项目 + 文档索引代次”Collection，比单项目 Collection 更细。完整写入后 SQLite 才切换活动指针。失败保留原文件与旧代次，失败文档不参与问答。显式重新索引成功后只清理该文档旧向量。
@@ -111,7 +121,25 @@ ui/app.py -> backend/services/ -> backend/rag/ + backend/storage/
 - `storage/database.py` 保存项目、文档、消息、规范 UTC 时间与引用快照。每项目一条对话，按 SQLite 自增序号稳定排序。引用不依赖当前原文件版本，因此重启后仍可展示原回答依据。
 - 设置中保留当前模型信息，每个文档保存建立索引时的完整非秘密配置与签名。不同模型、维度或地址的向量不会混用。切换配置不会自动删除旧索引。
 - 文件锁防止同项目的上传、索引、问答与清空交错。中断后残留“处理中”在获取锁确认无活动任务时转为失败，允许手动重试。
-- 后端不依赖 Streamlit，将来可新增 FastAPI 接口调用相同 services，无需重写 RAG。
+- 旧 `ui/` 仅作为 Streamlit 回退，不是新界面的依赖。后端不导入 Streamlit。
+
+## 本机 API
+
+| 接口 | 用途 |
+| --- | --- |
+| `GET /api/health` | 启动健康检查 |
+| `GET /api/projects`、`POST /api/projects` | 项目列表与创建；项目选择由前端保留 UUID |
+| `GET /api/projects/{id}/documents`、`POST /api/projects/{id}/documents` | 文档状态与 multipart 文件上传 |
+| `POST /api/projects/{id}/documents/{document_id}/index` | 手动确认索引 |
+| `GET /api/projects/{id}/messages`、`DELETE /api/projects/{id}/messages` | 读取或二次确认清空聊天 |
+| `POST /api/projects/{id}/questions` | 原 QAService 问答与引用 |
+| `GET /api/recommendations/presets` | 免费预设 |
+| `GET /api/projects/{id}/recommendations`、`POST /api/projects/{id}/recommendations` | 恢复或生成问题 |
+| `GET /api/settings`、`PUT /api/settings` | 非秘密配置、密钥状态和安全更新 |
+| `POST /api/settings/test` | 明确确认的合成连接测试 |
+| `GET /api/settings/data-location` | 主动查看数据位置 |
+
+索引、问答、推荐生成、清空聊天和连接测试提交独立的 UUID `request_id` 及 `confirmed`。重复请求 ID 返回 409；同项目长操作互斥，Service 仍保留跨进程文件锁。请求不会自动重试，重复 ID 的防护保留在当前服务进程中至多 24 小时；服务重启或网络中断后请先刷新历史、文档状态，再决定是否手动重试。
 
 ## 验证
 
@@ -121,9 +149,14 @@ ui/app.py -> backend/services/ -> backend/rag/ + backend/storage/
 .\.venv\Scripts\ruff.exe format --check backend ui tests scripts
 .\.venv\Scripts\python.exe -m compileall -q backend ui scripts
 .\.venv\Scripts\python.exe scripts/smoke_runtime.py
+cd frontend
+npm run typecheck
+npm test
+npm run build
+npm run test:e2e
 ```
 
-测试使用临时目录、Fake Embedding/Fake LLM、HTTP MockTransport 和实际 SQLite/Chroma。禁止外网，仅允许 Windows 异步事件循环所需的回环连接。不需要真实密钥，不产生真实百炼费用。
+后端测试使用临时目录、Fake Embedding/Fake LLM、HTTP MockTransport 和实际 SQLite/Chroma。禁止外网，仅允许回环连接。前端包含 Vitest 交互测试和 Playwright 实际 Chrome 端到端测试；后者使用独立的临时后端、Mock Qwen，测试辅助接口仅存在于测试服务器。需要已安装 Google Chrome；截图与测试产物被 Git 忽略。运行启动检查前先完成前端构建。无需真实密钥，不产生真实百炼费用。
 
 ## 当前限制
 
@@ -133,3 +166,4 @@ ui/app.py -> backend/services/ -> backend/rag/ + backend/storage/
 - 默认调用超时 45 秒，不自动重试付费请求；长文档可能需要等待多批请求。若中断，手动重新索引。
 - 为保守满足模型请求限制，单个 Embedding 文本不能超过 8000 UTF-8 字节，批次最多 10 条且合计不超过 8000 字节；默认 Chunk Size 1000 适用。更大的中文分块可能提示降低大小。
 - 首次使用时需配置自己的 Key，并明确触发合成连接测试，以确认目标地域、模型权限和凭据可用性。
+- 当前回答为非流式：提交后立即显示问题和处理中状态，完成后一次展示回答与引用。请求不会因页面切换而自动取消或重发；响应只更新发起请求的项目。

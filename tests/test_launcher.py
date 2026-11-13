@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def test_windows_launcher_help_has_no_ansi_even_with_forced_color():
     result = subprocess.run(
-        [sys.executable, str(ROOT / "scripts" / "launch_windows.py"), "--help"],
+        [sys.executable, str(ROOT / "scripts" / "launch_streamlit.py"), "--help"],
         env=dict(os.environ, FORCE_COLOR="1", CLICOLOR_FORCE="1"),
         capture_output=True,
         timeout=30,
@@ -40,7 +40,7 @@ def test_windows_launcher_runtime_health_and_plain_output(tmp_path):
     process = subprocess.Popen(
         [
             sys.executable,
-            str(ROOT / "scripts" / "launch_windows.py"),
+            str(ROOT / "scripts" / "launch_streamlit.py"),
             "--server.headless=true",
             f"--server.port={port}",
             "--server.address=127.0.0.1",

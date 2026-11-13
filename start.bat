@@ -10,7 +10,7 @@ if not exist ".venv\Scripts\python.exe" (
   pause
   exit /b 1
 )
-echo Open: http://127.0.0.1:8501
+echo Open: http://127.0.0.1:8765
 echo Keep this window open. Press Ctrl+C to stop.
 echo.
 ".venv\Scripts\python.exe" scripts/launch_windows.py

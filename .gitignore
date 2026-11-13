@@ -45,3 +45,9 @@ AGENTS.md
 # Internal development records stay local, regardless of file type or later content.
 /docs/
 
+# Local frontend dependencies, generated bundles, and browser-test artifacts.
+node_modules/
+/frontend/dist/
+/frontend/playwright-report/
+*.tsbuildinfo
+
