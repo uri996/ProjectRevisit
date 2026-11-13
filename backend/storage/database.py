@@ -42,6 +42,10 @@ class Database:
                     conversation_id TEXT NOT NULL, role TEXT NOT NULL, content TEXT NOT NULL,
                     created_at TEXT NOT NULL, status TEXT NOT NULL, citations TEXT NOT NULL);
                 CREATE INDEX IF NOT EXISTS messages_project ON messages(project_id, seq);
+                CREATE TABLE IF NOT EXISTS question_recommendations (
+                    project_id TEXT PRIMARY KEY REFERENCES projects(id),
+                    description TEXT NOT NULL, target_role TEXT NOT NULL,
+                    questions TEXT NOT NULL, updated_at TEXT NOT NULL);
             """)
 
     @contextmanager
@@ -110,5 +114,28 @@ class Database:
                 now(),
                 status,
                 json.dumps(list(citations), ensure_ascii=False),
+            ),
+        )
+
+    def recommendations(self, project_id):
+        self.project(project_id)
+        rows = self.query(
+            "SELECT * FROM question_recommendations WHERE project_id=?", (project_id,)
+        )
+        return rows[0] if rows else None
+
+    def save_recommendations(self, project_id, description, target_role, questions):
+        self.project(project_id)
+        self.execute(
+            """INSERT INTO question_recommendations VALUES(?,?,?,?,?)
+            ON CONFLICT(project_id) DO UPDATE SET description=excluded.description,
+            target_role=excluded.target_role, questions=excluded.questions,
+            updated_at=excluded.updated_at""",
+            (
+                project_id,
+                description,
+                target_role,
+                json.dumps(questions, ensure_ascii=False),
+                now(),
             ),
         )

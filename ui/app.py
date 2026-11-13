@@ -8,6 +8,7 @@ import streamlit as st
 from backend.models import AISettings, AppError
 from ui.context import application
 from ui.presentation import format_message_time, short_chunk_id
+from ui.recommendations import recommendation_panel
 
 STATUS = {
     "unindexed": "未索引",
@@ -173,6 +174,7 @@ def chat_page(app, project_id):
     except AppError as exc:
         st.warning(str(exc))
         st.caption("历史记录仍可浏览。请先修复 AI 设置，再继续问答。")
+    recommended_question = recommendation_panel(app.recommendations, project_id)
     with st.expander("清空当前项目的聊天记录"):
         confirm = st.checkbox(
             "确认永久清空当前项目对话（不删除文件与索引）", key=f"clear_{project_id}"
@@ -210,6 +212,7 @@ def chat_page(app, project_id):
                             st.caption("片段：" + short_chunk_id(citation["chunk_id"]))
                         st.text(citation["text"])
     question = st.chat_input("询问当前项目…", key=f"question_{project_id}")
+    question = recommended_question or question
     if question:
         try:
             with st.spinner("正在检索本项目证据并生成回答…"):

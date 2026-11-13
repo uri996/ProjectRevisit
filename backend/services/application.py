@@ -4,6 +4,7 @@ from backend.config import data_directory
 from backend.services.document_service import DocumentService
 from backend.services.project_service import ProjectService
 from backend.services.qa_service import QAService
+from backend.services.recommendation_service import RecommendationService
 from backend.services.settings_service import SettingsService
 from backend.storage.database import Database
 from backend.storage.files import FileStore
@@ -17,6 +18,7 @@ class Application:
     qa: QAService
     settings: SettingsService
     data_path: str
+    recommendations: RecommendationService
 
 
 def create_application(root=None, keys=None, provider_factory=None):
@@ -30,4 +32,5 @@ def create_application(root=None, keys=None, provider_factory=None):
         QAService(root, db, vectors, settings),
         settings,
         str(root),
+        RecommendationService(root, db, settings),
     )

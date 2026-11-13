@@ -9,6 +9,22 @@ from backend.models import AISettings
 from backend.services.application import create_application
 
 
+def fictional_question_output():
+    return {
+        "questions": [
+            {"question": question, "direction": direction, "reason": reason}
+            for question, direction, reason in (
+                ("Catalog 如何使用 CSV 保存图书目录？", "数据存储", "了解描述中的目录存储方案。"),
+                ("目录编号重复时如何处理？", "数据校验", "核对描述中的唯一性约束。"),
+                ("图书分类的校验边界是什么？", "边界条件", "考察分类输入处理。"),
+                ("如何测试图书关键字查找？", "测试方法", "考察检索功能的验证方式。"),
+                ("如果目录文件无法读取，你会如何处理？", "异常处理", "以假设场景考察健壮性。"),
+                ("如果增加多用户操作，需要考虑什么？", "扩展思考", "讨论尚未实现的假设扩展。"),
+            )
+        ]
+    }
+
+
 class MemoryKeys:
     def __init__(self):
         self.values = {}
@@ -55,6 +71,8 @@ class FakeProvider(Embeddings):
         self.payloads.append(payload)
         if "test" in payload:
             return {"ok": True}
+        if "project_description" in payload:
+            return fictional_question_output()
         chunk_id = "invented-path" if self.invent_citation else payload["evidence"][0]["chunk_id"]
         return dict(
             supported=self.supported,
