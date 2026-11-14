@@ -18,6 +18,29 @@ test("complete Vue + FastAPI workflow with isolated SQLite/Chroma and mock Qwen"
   await page.locator("#new-project").fill("示例项目 A");
   await page.getByRole("button", { name: "+ 创建项目", exact: true }).click();
   await expect(page.locator("#project option")).toHaveCount(1);
+  const sidebarToggle = page
+    .locator(".navigation")
+    .getByRole("button", { name: "收起导航", exact: true });
+  await expect(sidebarToggle).toBeVisible();
+  await expect(page.locator(".app-bar .nav-toggle")).toHaveCount(0);
+  const navBounds = (await page.locator(".navigation").boundingBox())!,
+    toggleBounds = (await sidebarToggle.boundingBox())!;
+  expect(toggleBounds.x).toBeGreaterThanOrEqual(navBounds.x);
+  expect(toggleBounds.x + toggleBounds.width).toBeLessThanOrEqual(
+    navBounds.x + navBounds.width,
+  );
+  await sidebarToggle.click();
+  await expect(
+    page
+      .locator(".navigation")
+      .getByRole("button", { name: "展开导航", exact: true }),
+  ).toBeVisible();
+  await page.screenshot({ path: "test-results/sidebar-toggle-collapsed.png" });
+  await page
+    .locator(".navigation")
+    .getByRole("button", { name: "展开导航", exact: true })
+    .click();
+  await page.screenshot({ path: "test-results/sidebar-toggle-expanded.png" });
   const first = await page.locator("#project").inputValue();
   await page.locator("#new-project").fill("示例项目 B");
   await page.getByRole("button", { name: "+ 创建项目", exact: true }).click();
@@ -411,7 +434,7 @@ test("readable UI, persistent compact navigation, safe Markdown and stable histo
   );
   await page.getByRole("button", { name: "关闭对话定位", exact: true }).click();
   expect((await (await request.get("/__test__/counts")).json()).llm).toBe(
-    calls.llm,
+    calls.llm + 1,
   );
   const raw = (await (
     await request.get(`/api/projects/${first}/messages`)

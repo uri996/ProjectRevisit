@@ -234,3 +234,50 @@ it("locates stable message IDs in the independent viewport and does not follow n
   await nextTick();
   expect(host.querySelectorAll(".conversation-list button")).toHaveLength(0);
 });
+
+it("distinguishes fact sources, analysis bases, unused context and legacy citations", async () => {
+  const base = {
+    source: "catalog.md",
+    chunk_id: "synthetic:0",
+    document_id: "synthetic-doc",
+    heading: "虚构目录",
+    text: "虚构目录使用 CSV。",
+    distance: 0.1,
+    cited: false,
+  };
+  context("a").messages = [
+    {
+      id: "layered-answer",
+      role: "assistant",
+      content:
+        "**基于项目资料的分析与建议（不代表已实施）**\n\n可以考虑增加测试。",
+      created_at: "2026-01-01T00:00:00Z",
+      status: "completed",
+      citations: [
+        {
+          ...base,
+          chunk_id: "fact:0",
+          reference: 1,
+          cited: true,
+          supporting_quotes: ["虚构目录使用 CSV。"],
+        },
+        { ...base, chunk_id: "analysis:0", reference: 2, analysis_basis: true },
+        { ...base, chunk_id: "unused:0", reference: 3 },
+        { ...base, chunk_id: "legacy:0", cited: true },
+      ],
+    },
+  ];
+  app = createApp(Chat);
+  app.mount(host);
+  await nextTick();
+  expect(host.textContent).toContain("支持对应事实段落");
+  expect(host.textContent).toContain("仅作为分析依据，不证明建议已实施");
+  expect(host.textContent).toContain("仅检索上下文，未用于结论");
+  expect(host.textContent).toContain("模型标记支持（旧回答）");
+  expect(host.querySelector(".supporting-quotes")?.textContent).toContain(
+    "虚构目录使用 CSV。",
+  );
+  expect(host.querySelector(".markdown-body strong")?.textContent).toContain(
+    "不代表已实施",
+  );
+});

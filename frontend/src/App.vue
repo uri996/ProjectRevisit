@@ -84,11 +84,16 @@ onMounted(async () => {
           ProjectRevisit<small>项目复盘 · 面试准备</small>
         </div>
         <button
-          class="mobile-only icon"
-          @click="menu = false"
-          aria-label="关闭导航"
+          class="icon sidebar-toggle"
+          @click="mobile ? (menu = false) : toggleNavigation()"
+          :aria-label="
+            mobile ? '关闭导航' : collapsed ? '展开导航' : '收起导航'
+          "
+          :title="mobile ? '关闭导航' : collapsed ? '展开导航' : '收起导航'"
+          :aria-expanded="mobile ? menu : !collapsed"
+          aria-controls="app-navigation"
         >
-          ×
+          {{ mobile ? "×" : collapsed ? "☰" : "‹" }}
         </button>
       </div>
       <button
@@ -156,6 +161,7 @@ onMounted(async () => {
     <main class="workspace">
       <header class="app-bar">
         <button
+          v-if="mobile"
           class="icon nav-toggle"
           @click="toggleNavigation"
           :aria-label="

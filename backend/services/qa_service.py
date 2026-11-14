@@ -31,8 +31,8 @@ class QAService:
                     "SELECT * FROM documents WHERE project_id=? AND status='completed' AND signature=?",
                     (project_id, settings.signature),
                 )
-                if not documents:
-                    answer = "资料不足：当前项目没有与现有配置兼容的已完成索引，请先手动建立或重新建立索引。"
+                if not documents and self.settings.key_status(settings) != "已保存":
+                    answer = "当前项目暂无兼容索引，无法核实项目事实。请先手动建立索引；配置可用 API Key 后，也可获取明确标注的通用知识与建议。"
                     citations, status = [], "insufficient"
                 else:
                     history = self.db.messages(project_id, settings.history_messages + 1)[:-1]
@@ -51,20 +51,22 @@ class QAService:
                     )
                     query = query.encode("utf-8")[-6000:].decode("utf-8", errors="ignore")
                     with self.settings.provider(settings) as provider:
-                        query_vector = provider.embed_query(query)
-                        evidence = retrieve(
-                            self.vectors, documents, project_id, query_vector, settings
+                        evidence = []
+                        if documents:
+                            query_vector = provider.embed_query(query)
+                            evidence = retrieve(
+                                self.vectors, documents, project_id, query_vector, settings
+                            )
+                        evidence_state = (
+                            "no_compatible_index"
+                            if not documents
+                            else "matched"
+                            if evidence
+                            else "no_matches"
                         )
-                        if not evidence:
-                            answer, citations, status = (
-                                "资料不足：没有找到足够相关的项目证据。",
-                                [],
-                                "insufficient",
-                            )
-                        else:
-                            answer, citations, status = generate(
-                                provider, question, history, evidence
-                            )
+                        answer, citations, status = generate(
+                            provider, question, history, evidence, evidence_state=evidence_state
+                        )
                 self.db.add_message(project_id, "assistant", answer, status, citations)
                 return dict(answer=answer, citations=citations, status=status)
             except Exception as exc:

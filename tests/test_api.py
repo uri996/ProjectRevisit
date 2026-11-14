@@ -55,6 +55,8 @@ def test_api_complete_workflow_isolation_and_persistence(client, configured, tmp
     result = client.post(f"/api/projects/{first}/questions", json=question)
     assert result.status_code == 200
     assert result.json()["citations"][0]["source"] == "catalog.md"
+    assert result.json()["citations"][0]["reference"] == 1
+    assert result.json()["citations"][0]["supporting_quotes"]
     assert client.post(f"/api/projects/{first}/questions", json=question).status_code == 409
     assert len(client.get(f"/api/projects/{first}/messages").json()) == 2
     assert client.get(f"/api/projects/{second}/messages").json() == []

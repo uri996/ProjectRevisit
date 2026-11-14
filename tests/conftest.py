@@ -73,14 +73,37 @@ class FakeProvider(Embeddings):
             return {"ok": True}
         if "project_description" in payload:
             return fictional_question_output()
-        chunk_id = "invented-path" if self.invent_citation else payload["evidence"][0]["chunk_id"]
-        return dict(
-            supported=self.supported,
-            answer="示例回答：" + payload["evidence"][0]["text"]
-            if self.supported
-            else "材料没有记录选择原因。",
-            used_chunk_ids=[chunk_id] if self.supported else [],
-        )
+        if not self.supported:
+            return {
+                "sections": [
+                    {
+                        "kind": "uncertainty",
+                        "text": "本次检索资料未记录选择原因，无法确认当时动机。",
+                        "sources": [],
+                    }
+                ]
+            }
+        if not payload["evidence"]:
+            return {
+                "sections": [
+                    {
+                        "kind": "general",
+                        "text": "可以先列出目标、约束和验证办法，再比较技术方案；这属于通用建议，不代表项目已经采用。",
+                        "sources": [],
+                    }
+                ]
+            }
+        chunk = payload["evidence"][0]
+        chunk_id = "invented-path" if self.invent_citation else chunk["chunk_id"]
+        return {
+            "sections": [
+                {
+                    "kind": "fact",
+                    "text": "示例回答：" + chunk["text"],
+                    "sources": [{"chunk_id": chunk_id, "quote": chunk["text"][:240]}],
+                }
+            ]
+        }
 
 
 @pytest.fixture(autouse=True)

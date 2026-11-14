@@ -79,11 +79,33 @@ class BailianProvider(Embeddings):
                 response_format={"type": "json_object"},
                 extra_body={"enable_thinking": False},
             )
-            return json.loads(response.choices[0].message.content)
         except Exception:
             raise AppError(
-                "LLM 请求失败或返回格式无效：请检查模型、地域、权限、额度及网络。"
+                "LLM 请求失败（LLM_REQUEST）：请检查模型、地域、权限、额度及网络。"
             ) from None
+        # Diagnose protocol failures separately from answer/evidence validation.
+        # No provider exception, response text or usage payload is persisted/logged.
+        if not response.choices:
+            raise AppError("模型返回为空（LLM_EMPTY），未保存为成功回答。")
+        choice = response.choices[0]
+        if choice.finish_reason == "length":
+            raise AppError(
+                "模型输出达到长度上限（LLM_TRUNCATED），未保存为成功回答。请缩小提问范围。"
+            )
+        if choice.finish_reason not in ("stop", None):
+            raise AppError("模型未正常结束回答（LLM_FINISH），未保存为成功回答。")
+        content = choice.message.content
+        if not isinstance(content, str) or not content.strip():
+            raise AppError("模型返回为空（LLM_EMPTY），未保存为成功回答。")
+        content = content.lstrip("\ufeff").strip()
+        # Accept only a single enclosing code fence, not arbitrary Markdown/prose.
+        lines = content.splitlines()
+        if len(lines) >= 3 and lines[0].lower() in ("```json", "```") and lines[-1] == "```":
+            content = "\n".join(lines[1:-1])
+        try:
+            return json.loads(content)
+        except (ValueError, TypeError):
+            raise AppError("模型响应不是有效 JSON（LLM_JSON），未保存为成功回答。") from None
 
     def close(self):
         self.client.close()

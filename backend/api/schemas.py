@@ -91,6 +91,9 @@ class Citation(BaseModel):
     text: str
     distance: float
     cited: bool = False
+    reference: int | None = None
+    analysis_basis: bool = False
+    supporting_quotes: list[str] = Field(default_factory=list)
 
 
 class Message(BaseModel):

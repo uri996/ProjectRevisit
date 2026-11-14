@@ -142,7 +142,9 @@ def test_update_replaces_generation_and_no_old_chunks(configured):
     result = app.documents.upload(p, "notes.md", b"# Fictional catalog\nCatalog new_marker")
     assert result == dict(document_id=d, action="updated")
     assert app.documents.list(p)[0]["status"] == "needs_reindex"
-    assert app.qa.ask(p, "catalog")["status"] == "insufficient"
+    fallback = app.qa.ask(p, "catalog")
+    assert fallback["status"] == "completed" and fallback["citations"] == []
+    assert "通用知识" in fallback["answer"]
     app.documents.index(p, d, confirmed=True)
     assert app.documents.list(p)[0]["collection"] != old
     answer = app.qa.ask(p, "catalog")
@@ -169,7 +171,8 @@ def test_failed_index_preserves_files_and_other_project(configured, monkeypatch)
     assert app.documents.files.read(row["path"])
     monkeypatch.setattr(app.documents.vectors, "stage", original_stage)
     assert app.qa.ask(q, "Catalog")["status"] == "completed"
-    assert app.qa.ask(p, "Catalog")["status"] == "insufficient"
+    fallback = app.qa.ask(p, "Catalog")
+    assert fallback["status"] == "completed" and fallback["citations"] == []
 
 
 def test_partial_stage_never_becomes_active(configured, monkeypatch):
@@ -208,8 +211,10 @@ def test_configuration_compatibility_and_no_silent_switch(configured):
     assert json.loads(row["index_config"])["dimensions"] == 1024
     assert app.documents.vectors._open(row["collection"]).get()["ids"]
     count = len(providers)
-    assert app.qa.ask(p, "Catalog")["status"] == "insufficient"
-    assert len(providers) == count
+    fallback = app.qa.ask(p, "Catalog")
+    assert fallback["status"] == "completed" and fallback["citations"] == []
+    assert len(providers) == count + 1
+    assert providers[-1].embedded == []
     app.documents.index(p, row["id"], confirmed=True)
     assert app.qa.ask(p, "Catalog")["status"] == "completed"
     with pytest.raises(AppError, match="新加坡"):
@@ -260,7 +265,8 @@ def test_llm_fault_and_insufficient_and_invented_citations(configured):
         if flag == "supported":
             result = app.qa.ask(p, "为何选择 CSV？")
             assert result["status"] == "insufficient"
-            assert "资料不足" in result["answer"]
+            assert "尚待核实" in result["answer"]
+            assert result["answer"].count("资料不足") == 0
             assert result["citations"]
         else:
             with pytest.raises(AppError):
@@ -271,18 +277,22 @@ def test_llm_fault_and_insufficient_and_invented_citations(configured):
         assert app.projects.list()
 
 
-def test_no_results_skips_llm(configured):
+def test_no_results_still_allows_labelled_general_help(configured):
     app, providers, *_ = configured
     p = app.projects.create("A")
     upload_index(app, p)
     app.settings.save(replace(app.settings.load(), max_distance=0.0))
     answer = app.qa.ask(p, "completely unrelated topic")
-    assert answer["status"] == "insufficient"
+    assert answer["status"] == "completed"
     assert answer["citations"] == []
-    assert providers[-1].payloads == []
+    assert len(providers[-1].payloads) == 1
+    assert providers[-1].payloads[0]["evidence"] == []
+    assert providers[-1].payloads[0]["evidence_state"] == "no_matches"
+    assert "AI 通用知识" in answer["answer"]
 
 
-def test_no_settings_key_or_optional_api_at_start(tmp_path):
+def test_no_settings_key_or_optional_api_at_start(tmp_path, monkeypatch):
+    monkeypatch.setattr(SecureKeys, "get", lambda self, account: None)
     app = create_application(tmp_path)
     p = app.projects.create("Offline")
     app.documents.upload(p, "offline.txt", b"No API required.")

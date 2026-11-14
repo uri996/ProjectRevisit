@@ -23,6 +23,9 @@ export interface Citation {
   text: string;
   distance: number;
   cited: boolean;
+  reference?: number | null;
+  analysis_basis?: boolean;
+  supporting_quotes?: string[];
 }
 export interface Message {
   id: string;

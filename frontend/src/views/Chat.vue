@@ -8,6 +8,7 @@ import {
   watch,
 } from "vue";
 import type { ComponentPublicInstance } from "vue";
+import type { Citation } from "../types";
 import RecommendationPanel from "../components/RecommendationPanel.vue";
 import MarkdownMessage from "../components/MarkdownMessage.vue";
 import ConversationLocator from "../components/ConversationLocator.vue";
@@ -147,6 +148,15 @@ const time = (value: string) => {
         hour12: false,
       });
 };
+function sourceLabel(citation: Citation) {
+  if (citation.reference == null)
+    return citation.cited ? "模型标记支持（旧回答）" : "旧检索上下文";
+  if (citation.cited)
+    return citation.analysis_basis ? "事实来源 / 分析依据" : "支持对应事实段落";
+  return citation.analysis_basis
+    ? "仅作为分析依据，不证明建议已实施"
+    : "仅检索上下文，未用于结论";
+}
 </script>
 <template>
   <div v-if="!current" class="empty page">请先在左侧创建项目。</div>
@@ -161,7 +171,10 @@ const time = (value: string) => {
       @keydown.esc="locatorOpen = false"
     >
       <header class="chat-toolbar">
-        <span><span class="status-dot"></span> 基于当前项目资料回答</span>
+        <span
+          ><span class="status-dot"></span> 项目事实有依据 ·
+          分析与建议分开标注</span
+        >
         <div class="toolbar-actions">
           <button
             class="locator-toolbar-button"
@@ -232,10 +245,10 @@ const time = (value: string) => {
           <div class="empty-symbol">◇</div>
           <h1>从一个好问题开始</h1>
           <p>
-            直接提问，或从右侧选择推荐问题。<br />回答将依据当前项目的知识库，并附来源证据。
+            直接提问，或从右侧选择推荐问题。<br />项目事实附真实来源，分析建议与通用知识单独标注。
           </p>
           <p class="muted small">
-            若尚无兼容索引，请先在知识库管理中手动建立索引。
+            项目事实需有资料支持；没有可用证据时，可提供明确标注的通用知识与建议。
           </p>
           <button @click="openRecommendations">浏览推荐问题 ↗</button>
         </div>
@@ -257,7 +270,7 @@ const time = (value: string) => {
               ><span v-if="message.status === 'failed'" class="error-text"
                 >失败</span
               ><span v-else-if="message.status === 'insufficient'"
-                >资料不足</span
+                >项目事实待核实</span
               >
             </div>
             <MarkdownMessage
@@ -268,15 +281,27 @@ const time = (value: string) => {
             <details v-if="message.citations.length" class="citations">
               <summary>来源证据 · {{ message.citations.length }} 条</summary>
               <section
-                v-for="citation in message.citations"
+                v-for="(citation, citationIndex) in message.citations"
                 :key="citation.chunk_id"
                 class="citation"
               >
+                <span class="badge"
+                  >资料 {{ citation.reference ?? citationIndex + 1 }}</span
+                >
                 <strong>{{ citation.source }}</strong>
                 <p class="muted small">
                   {{ citation.heading || "无章节标题" }} ·
-                  {{ citation.cited ? "模型标记支持" : "检索上下文" }}
+                  {{ sourceLabel(citation) }}
                 </p>
+                <div
+                  v-if="citation.supporting_quotes?.length"
+                  class="supporting-quotes"
+                >
+                  <span class="muted small">本次引用原文</span>
+                  <p v-for="quote in citation.supporting_quotes" :key="quote">
+                    {{ quote }}
+                  </p>
+                </div>
                 <blockquote>{{ citation.text }}</blockquote>
                 <details>
                   <summary class="small">完整 Chunk ID</summary>

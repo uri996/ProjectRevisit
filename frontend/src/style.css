@@ -960,6 +960,25 @@ details > section {
 .brand-text {
   min-width: 0;
 }
+.sidebar-toggle {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.brand {
+  gap: 7px;
+}
+.brand-text {
+  font-size: 15px;
+}
+@media (min-width: 901px) {
+  .nav-collapsed .brand {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .nav-collapsed .sidebar-toggle {
+    margin-left: 0;
+  }
+}
 .composer textarea,
 .recommendation-form textarea,
 .recommendation-form input {
