@@ -63,6 +63,20 @@ class SettingsService:
         except AppError:
             return "安全凭据不可用"
 
+    def view(self):
+        """Non-secret settings snapshot; malformed local config remains untouched."""
+        warning = None
+        try:
+            current = self.load()
+        except AppError:
+            current = AISettings()
+            warning = "本地配置无效，已显示默认值供修复；保存前不会覆盖原配置。"
+        return {
+            "settings": current.to_dict(),
+            "key_status": self.key_status(current),
+            "warning": warning,
+        }
+
     def save(self, settings, key=""):
         try:
             with FileLock(str(self.path) + ".lock", timeout=0):

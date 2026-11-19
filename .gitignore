@@ -20,7 +20,7 @@ test-results/
 coverage*
 .coverage
 htmlcov/
-.streamlit/secrets.toml
+.streamlit/
 settings.json
 settings.json.*
 originals/

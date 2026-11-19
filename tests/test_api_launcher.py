@@ -7,6 +7,8 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import ProxyHandler, build_opener
 
+import pytest
+
 
 def test_new_launcher_help_and_loopback_health_without_frontend_dependency(tmp_path):
     root = Path(__file__).resolve().parents[1]
@@ -31,7 +33,9 @@ def test_new_launcher_help_and_loopback_health_without_frontend_dependency(tmp_p
             str(port),
         ],
         cwd=root,
-        env=dict(os.environ, PROJECT_RAG_DATA_DIR=str(tmp_path)),
+        env=dict(
+            os.environ, PROJECT_RAG_DATA_DIR=str(tmp_path), FORCE_COLOR="1", CLICOLOR_FORCE="1"
+        ),
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
     )
@@ -51,3 +55,20 @@ def test_new_launcher_help_and_loopback_health_without_frontend_dependency(tmp_p
         process.terminate()
         output = process.communicate(timeout=10)[0]
     assert b"\x1b" not in output
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows CMD startup behavior")
+def test_batch_launcher_keeps_install_failure_visible(tmp_path):
+    root = Path(__file__).resolve().parents[1]
+    batch = tmp_path / "start.bat"
+    batch.write_bytes((root / "start.bat").read_bytes())
+    result = subprocess.run(
+        ["cmd.exe", "/d", "/c", str(batch)],
+        input=b"\r\n",
+        capture_output=True,
+        timeout=15,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert b"Please install Python 3.12" in result.stdout
+    assert b"\x1b" not in result.stdout + result.stderr

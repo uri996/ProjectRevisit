@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { api } from "../api";
-import { current, errorText, loadProject, state } from "../store";
+import { ref, watch } from "vue";
+import {
+  current,
+  indexDocuments,
+  loadProject,
+  state,
+  uploadDocuments,
+} from "../store";
 const files = ref<File[]>([]),
   selected = ref<string[]>([]),
   consent = ref(false),
   feedback = ref("");
-import { watch } from "vue";
 watch(
   () => state.selected,
   () => {
@@ -24,62 +28,25 @@ const labels: Record<string, string> = {
   needs_reindex: "需重新索引",
 };
 async function upload() {
-  const id = state.selected,
-    p = current.value;
-  if (!p || p.task) return;
-  p.task = "正在保存上传文件…";
-  p.error = "";
+  if (!current.value) return;
+  const id = state.selected;
   feedback.value = "";
-  const batch = [...files.value];
-  try {
-    for (let i = 0; i < batch.length; i++) {
-      p.task = `保存文件 ${i + 1}/${batch.length}`;
-      const result = await api.upload(id, batch[i]!);
-      if (state.selected === id)
-        feedback.value =
-          result.action === "duplicate"
-            ? "相同内容已存在，未重复导入。"
-            : "文件已保存，尚未发送 Embedding 请求。";
-    }
-    if (state.selected === id) files.value = [];
-  } catch (e) {
-    p.error = errorText(e);
-  } finally {
-    p.task = "";
-    const error = p.error;
-    await loadProject(id, true);
-    if (error) p.error = error;
+  const result = await uploadDocuments(id, files.value);
+  if (state.selected === id && result !== undefined) {
+    feedback.value = result;
+    files.value = [];
   }
 }
 async function index() {
-  const id = state.selected,
-    p = current.value,
-    docs = [...selected.value];
-  if (!p || p.task || !consent.value || !docs.length) return;
-  p.error = "";
+  if (!current.value || !consent.value) return;
+  const id = state.selected;
   feedback.value = "";
-  let failures = 0;
-  try {
-    for (let i = 0; i < docs.length; i++) {
-      p.task = `正在建立索引 ${i + 1}/${docs.length}…`;
-      try {
-        await api.index(id, docs[i]!);
-      } catch (e) {
-        failures++;
-        p.error = errorText(e);
-      }
-    }
-  } finally {
-    p.task = "";
-    if (state.selected === id) {
-      consent.value = false;
-      feedback.value = failures
-        ? `${failures} 个文件索引失败，可检查配置后手动重试。`
-        : "索引处理完成。";
-    }
-    const error = p.error;
-    await loadProject(id, true);
-    if (error) p.error = error;
+  const failures = await indexDocuments(id, selected.value);
+  if (state.selected === id && failures !== undefined) {
+    consent.value = false;
+    feedback.value = failures
+      ? `${failures} 个文件索引失败，可检查配置后手动重试。`
+      : "索引处理完成。";
   }
 }
 </script>

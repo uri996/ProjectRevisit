@@ -1,6 +1,6 @@
 # ProjectRevisit v0.1
 
-ProjectRevisit 是一款本地项目知识检索与面试复习助手。使用 Vue 3、TypeScript、Vite、FastAPI、Python Services、LangChain、Chroma、SQLite 和阿里云百炼。所有日常操作均有中文界面；不需要 Docker、账号或云服务器。旧 Streamlit 界面仅保留为回退入口。
+ProjectRevisit 是一款本地项目知识检索与面试复习助手。使用 Vue 3、TypeScript、Vite、FastAPI、Python Services、LangChain、Chroma、SQLite 和阿里云百炼。所有日常操作均有中文界面；不需要 Docker、账号或云服务器。Vue + FastAPI 是唯一维护的运行入口。
 
 ## Windows 10 安装与启动
 
@@ -26,11 +26,11 @@ cd ..
 .\.venv\Scripts\python.exe scripts/launch_windows.py
 ```
 
-`requirements-lock.txt` 固定 Windows/Python 3.12 使用的依赖版本。可省略锁文件安装这一步，直接安装项目声明的兼容版本范围，但这样解析到的依赖可能不同。
+`requirements-lock.txt` 固定 Windows/Python 3.12 使用的应用与开发依赖版本，不包含旧界面专属依赖。可省略锁文件安装这一步，直接安装项目声明的兼容版本范围，但这样解析到的依赖可能不同。
 
 浏览器访问 **http://127.0.0.1:8765**。以后双击 `start.bat` 即可启动；一个 Python 进程同时提供 API 和 Vue 生产资源，并在健康检查成功后打开浏览器。窗口保留错误，缺少前端构建时会提示构建命令。停止时按 **Ctrl+C**，无需管理额外的 Vite 进程。`--no-browser` 可禁用自动打开，`--port` 可更换本机端口。
 
-开发时分别运行 `.\.venv\Scripts\python.exe scripts/launch_windows.py --api-only --no-browser` 和 `cd frontend; npm run dev`，访问 `http://127.0.0.1:5173`。Vite 仅监听本机并代理 `/api` 至 8765。旧版回退命令：`.\.venv\Scripts\python.exe scripts/launch_streamlit.py`，访问 8501；两个入口使用相同数据空间，请避免同时对同一项目执行付费操作。
+开发时分别运行 `.\.venv\Scripts\python.exe scripts/launch_windows.py --api-only --no-browser` 和 `cd frontend; npm run dev`，访问 `http://127.0.0.1:5173`。Vite 仅监听本机并代理 `/api` 至 8765。
 
 ## 首次使用
 
@@ -90,7 +90,7 @@ Windows 默认私人数据目录：
 
 可在启动前设置 `PROJECT_RAG_DATA_DIR` 指定其他仓库外目录；这会打开一个独立的数据空间，**不会自动迁移原数据**。指向本仓库内部会明确拒绝启动。API Key 不在该目录，而由操作系统安全凭据保存。安全凭据不可用时明确报错，不会降级保存到 JSON、SQLite 或 `.env`。
 
-本地保存、GitHub 上传与第三方 API 请求是三件事。本应用不连接 GitHub。建立索引时会向配置的 API 发送分块；聊天时会发送问题、受限历史与本次证据。Chroma 与 Streamlit 使用统计已关闭，HTTP 请求不跟随重定向。不要在系统上开启 SDK 调试日志来处理私人资料。
+本地保存、GitHub 上传与第三方 API 请求是三件事。本应用不连接 GitHub。建立索引时会向配置的 API 发送分块；聊天时会发送问题、受限历史与本次证据。Chroma 使用统计已关闭，HTTP 请求不跟随重定向。不要在系统上开启 SDK 调试日志来处理私人资料。
 
 FastAPI 默认只监听 127.0.0.1，限制 Host 为 127.0.0.1 / localhost；写接口要求来自当前本机应用端口或 Vite 5173 的 Origin，不允许任意跨域来源。前端不直接连接 Qwen、Chroma 或 SQLite。校验错误不回显输入，日志不输出 API Key、私人路径或资料。
 
@@ -112,8 +112,8 @@ frontend/src/ -> HTTP /api -> backend/api/ -> backend/services/
                                                -> SQLite / 文件 / Chroma / 百炼
 ```
 
-- `frontend/src/api.ts` 封装请求；`store.ts` 按项目维护临时状态；Vue Router 提供概况、知识库、问答和设置页面。
-- `backend/api/` 定义 Pydantic 契约、路由、本机访问边界和请求互斥；`services/application.py` 组装原有 Service，API 不重写业务。
+- `frontend/src/api.ts` 封装请求及响应类型；`store.ts` 按项目维护临时状态及上传、索引、问答、推荐和清空操作；Vue Router 提供概况、知识库、问答和设置页面。
+- `backend/api/` 定义 Pydantic 契约、路由、本机访问边界和请求互斥；`services/application.py` 组装 Service，API 不重写业务。配置容错读取与非秘密视图由 SettingsService 提供。
 - `project_service.py` 创建 UUID 项目；`document_service.py` 验证上传、去重、处理索引状态和版本切换。
 - `rag/loader.py` 正常化 UTF-8 和换行，`chunker.py` 保留 Markdown 标题路径，`provider.py` 是可替换的 Embedding/LLM 边界。
 - `storage/vector_store.py` 使用独立的“项目 + 文档索引代次”Collection，比单项目 Collection 更细。完整写入后 SQLite 才切换活动指针。失败保留原文件与旧代次，失败文档不参与问答。显式重新索引成功后只清理该文档旧向量。
@@ -121,7 +121,6 @@ frontend/src/ -> HTTP /api -> backend/api/ -> backend/services/
 - `storage/database.py` 保存项目、文档、消息、规范 UTC 时间与引用快照。每项目一条对话，按 SQLite 自增序号稳定排序。引用不依赖当前原文件版本，因此重启后仍可展示原回答依据。
 - 设置中保留当前模型信息，每个文档保存建立索引时的完整非秘密配置与签名。不同模型、维度或地址的向量不会混用。切换配置不会自动删除旧索引。
 - 文件锁防止同项目的上传、索引、问答与清空交错。中断后残留“处理中”在获取锁确认无活动任务时转为失败，允许手动重试。
-- 旧 `ui/` 仅作为 Streamlit 回退，不是新界面的依赖。后端不导入 Streamlit。
 
 ## 本机 API
 
@@ -146,8 +145,8 @@ frontend/src/ -> HTTP /api -> backend/api/ -> backend/services/
 ```powershell
 .\.venv\Scripts\python.exe -m pytest -q
 .\.venv\Scripts\ruff.exe check .
-.\.venv\Scripts\ruff.exe format --check backend ui tests scripts
-.\.venv\Scripts\python.exe -m compileall -q backend ui scripts
+.\.venv\Scripts\ruff.exe format --check backend tests scripts
+.\.venv\Scripts\python.exe -m compileall -q backend scripts
 .\.venv\Scripts\python.exe scripts/smoke_runtime.py
 cd frontend
 npm run typecheck

@@ -6,6 +6,7 @@ import type { Message } from "../../src/types";
 test.afterAll(async ({ request }) => {
   await request.post("/__test__/stop").catch(() => {});
 });
+
 test("complete Vue + FastAPI workflow with isolated SQLite/Chroma and mock Qwen", async ({
   page,
   request,
@@ -469,4 +470,36 @@ test("readable UI, persistent compact navigation, safe Markdown and stable histo
       path: `test-results/page-${path === "/" ? "overview" : path!.slice(1)}.png`,
     });
   }
+});
+
+test("optional recommendation load failure stays local and can recover without blocking chat", async ({
+  page,
+}) => {
+  await page.route("**/api/projects/*/recommendations", async (route) => {
+    if (route.request().method() === "GET")
+      await route.fulfill({
+        status: 400,
+        contentType: "application/json",
+        body: JSON.stringify({ error: "模拟推荐读取失败" }),
+      });
+    else await route.continue();
+  });
+  await page.goto("/");
+  await page.locator("#new-project").fill("虚构故障隔离项目");
+  await page.getByRole("button", { name: "+ 创建项目", exact: true }).click();
+  await page.getByRole("link", { name: "智能问答", exact: false }).click();
+  await expect(page.getByRole("alert")).toContainText("模拟推荐读取失败");
+  const question = page
+    .locator(".recommendation-panel .question-button")
+    .first();
+  await question.click();
+  await expect(page.locator(".message")).toHaveCount(2);
+  await expect(page.locator(".message.assistant")).toContainText("AI 通用知识");
+  await expect(page.getByLabel("询问当前项目", { exact: true })).toBeEnabled();
+  await page.unroute("**/api/projects/*/recommendations");
+  await page.getByRole("link", { name: "知识库管理", exact: false }).click();
+  await page.getByRole("button", { name: "刷新状态", exact: true }).click();
+  await page.getByRole("link", { name: "智能问答", exact: false }).click();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(page.locator(".message")).toHaveCount(2);
 });

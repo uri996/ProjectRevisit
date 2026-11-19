@@ -8,7 +8,7 @@ def test_gitignore_private_data_and_public_source():
     root = Path(__file__).resolve().parents[1]
     protected = [
         "AGENTS.md",
-        "ui/AGENTS.md",
+        "frontend/AGENTS.md",
         "examples/AGENTS.md",
         "nested/deeper/AGENTS.md",
         ".env",
@@ -44,6 +44,7 @@ def test_gitignore_private_data_and_public_source():
         "cache.pkl",
         "cache.pickle",
         ".streamlit/secrets.toml",
+        ".streamlit/config.toml",
         "backend/__pycache__/models.pyc",
         "project_rag_assistant.egg-info/PKG-INFO",
         "examples/personal_notes.md",
@@ -62,7 +63,7 @@ def test_gitignore_private_data_and_public_source():
     ]
     public = [
         "backend/models.py",
-        "ui/app.py",
+        "frontend/src/App.vue",
         "tests/test_privacy.py",
         "scripts/smoke_runtime.py",
         "README.md",
@@ -72,7 +73,6 @@ def test_gitignore_private_data_and_public_source():
         ".gitignore",
         "pyproject.toml",
         "requirements-lock.txt",
-        ".streamlit/config.toml",
         "start.bat",
     ]
     # Only this newly created, disposable directory is initialized as a Git repository.
@@ -115,7 +115,7 @@ def test_public_files_do_not_link_internal_records():
         root / "requirements-lock.txt",
         root / "start.bat",
     ]
-    for folder in ("backend", "ui", "tests", "examples", "scripts", ".streamlit"):
+    for folder in ("backend", "tests", "examples", "scripts", "frontend/src", "frontend/tests"):
         candidates.extend(
             path
             for path in (root / folder).rglob("*")

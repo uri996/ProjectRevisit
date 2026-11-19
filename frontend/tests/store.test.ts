@@ -3,11 +3,14 @@ import { nextTick } from "vue";
 import { api } from "../src/api";
 import {
   context,
+  clearMessages,
+  indexDocuments,
   generateQuestions,
   loadProject,
   selectProject,
   sendQuestion,
   state,
+  uploadDocuments,
 } from "../src/store";
 import type { Message, Recommendations } from "../src/types";
 
@@ -35,13 +38,137 @@ const saved: Recommendations = {
   ],
   updated_at: "2026-01-01T00:00:00Z",
 };
+
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+function projectReads() {
+  vi.spyOn(api, "documents").mockResolvedValue([]);
+  vi.spyOn(api, "messages").mockResolvedValue([]);
+  vi.spyOn(api, "recommendations").mockResolvedValue(null);
+}
 describe("project-scoped workflow", () => {
+  it("retries partial loads on reentry while keeping optional failures separate from chat", async () => {
+    projectReads();
+    vi.mocked(api.recommendations).mockRejectedValueOnce(
+      new Error("推荐读取失败"),
+    );
+    await loadProject("a");
+    expect(context("a").loaded).toBe(false);
+    expect(context("a").error).toBe("");
+    expect(context("a").recommendationError).toBe("推荐读取失败");
+    await loadProject("a");
+    expect(context("a").loaded).toBe(true);
+    expect(context("a").recommendationError).toBe("");
+    expect(api.messages).toHaveBeenCalledTimes(2);
+    vi.mocked(api.messages).mockRejectedValueOnce(new Error("历史读取失败"));
+    await loadProject("a", true);
+    expect(context("a").loaded).toBe(false);
+    await loadProject("a");
+    expect(context("a").loaded).toBe(true);
+  });
+  it("does not let a late initial recommendation read overwrite newly generated results or an edited form", async () => {
+    projectReads();
+    const old = deferred<Recommendations | null>();
+    vi.mocked(api.recommendations).mockReturnValueOnce(old.promise);
+    const loading = loadProject("a");
+    context("a").description = "新的虚构目录描述";
+    const generated = { ...saved, description: context("a").description };
+    vi.spyOn(api, "generate").mockResolvedValue(generated);
+    await generateQuestions("a");
+    old.resolve(saved);
+    await loading;
+    expect(context("a").recommendations).toEqual(generated);
+    expect(context("a").description).toBe("新的虚构目录描述");
+  });
+  it("does not replace edits with a delayed saved form", async () => {
+    projectReads();
+    const old = deferred<Recommendations | null>();
+    vi.mocked(api.recommendations).mockReturnValueOnce(old.promise);
+    const loading = loadProject("a");
+    context("a").description = "正在编辑的虚构资料";
+    context("a").role = "虚构岗位";
+    old.resolve(saved);
+    await loading;
+    expect(context("a").recommendations).toEqual(saved);
+    expect(context("a").description).toBe("正在编辑的虚构资料");
+    expect(context("a").role).toBe("虚构岗位");
+  });
+  it("blocks stale history reads launched during a question and keeps clear scoped to its project", async () => {
+    projectReads();
+    const ask = deferred<{ answer: string; status: string; citations: [] }>();
+    const old = deferred<Message[]>();
+    vi.spyOn(api, "ask").mockReturnValue(ask.promise);
+    const pending = sendQuestion("a", "虚构问题");
+    vi.mocked(api.messages).mockReturnValueOnce(old.promise);
+    const loading = loadProject("a", true);
+    vi.mocked(api.messages).mockResolvedValue([message("new", "新回答")]);
+    ask.resolve({ answer: "新回答", status: "completed", citations: [] });
+    await pending;
+    old.resolve([]);
+    await loading;
+    expect(context("a").messages[0]?.id).toBe("new");
+    const clear = deferred<{ status: string }>();
+    vi.spyOn(api, "clear").mockReturnValue(clear.promise);
+    state.selected = "b";
+    context("b").messages = [message("b", "保留 B")];
+    const clearing = clearMessages("a");
+    expect(await clearMessages("a")).toBe(false);
+    clear.resolve({ status: "ok" });
+    expect(await clearing).toBe(true);
+    expect(context("a").messages).toEqual([]);
+    expect(context("b").messages[0]?.id).toBe("b");
+  });
+  it("uploads without indexing and retains a project task until refresh finishes", async () => {
+    projectReads();
+    const refresh = deferred<[]>();
+    vi.mocked(api.documents).mockReturnValue(refresh.promise);
+    vi.spyOn(api, "upload").mockResolvedValue({
+      action: "created",
+      document_id: "doc-a",
+    });
+    vi.spyOn(api, "index");
+    const file = new File(["Fictional catalog"], "catalog.md");
+    const pending = uploadDocuments("a", [file]);
+    await nextTick();
+    expect(context("a").task).not.toBe("");
+    await uploadDocuments("a", [file]);
+    expect(api.upload).toHaveBeenCalledTimes(1);
+    expect(api.index).not.toHaveBeenCalled();
+    refresh.resolve([]);
+    expect(await pending).toContain("尚未发送");
+    expect(context("a").task).toBe("");
+  });
+  it("indexes only requested documents, preserves failures through refresh and isolates project state", async () => {
+    projectReads();
+    vi.spyOn(api, "index")
+      .mockRejectedValueOnce(new Error("模拟索引失败"))
+      .mockResolvedValueOnce({
+        document_id: "doc-2",
+        chunk_count: 1,
+        status: "completed",
+      });
+    state.selected = "b";
+    expect(await indexDocuments("a", ["doc-1", "doc-2"])).toBe(1);
+    expect(vi.mocked(api.index).mock.calls).toEqual([
+      ["a", "doc-1"],
+      ["a", "doc-2"],
+    ]);
+    expect(context("a").error).toBe("模拟索引失败");
+    expect(context("a").task).toBe("");
+    expect(context("b").error).toBe("");
+  });
   it("shows the question synchronously, prevents duplicate sends and keeps late responses in the originating project", async () => {
     let finish!: () => void;
     vi.spyOn(api, "ask").mockImplementation(
       () =>
         new Promise((resolve) => {
-          finish = () => resolve({});
+          finish = () =>
+            resolve({ answer: "演示回答", status: "completed", citations: [] });
         }),
     );
     vi.spyOn(api, "messages").mockResolvedValue([

@@ -35,6 +35,20 @@ export interface Message {
   status: string;
   citations: Citation[];
 }
+export interface Answer {
+  answer: string;
+  status: string;
+  citations: Citation[];
+}
+export interface UploadResult {
+  document_id: string;
+  action: "created" | "updated" | "duplicate";
+}
+export interface IndexResult {
+  document_id: string;
+  chunk_count: number;
+  status: string;
+}
 export interface Recommended {
   question: string;
   direction: string;

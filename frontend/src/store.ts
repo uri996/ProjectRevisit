@@ -17,6 +17,7 @@ export interface ProjectState {
   loaded: boolean;
   version: number;
   messageVersion: number;
+  recommendationVersion: number;
 }
 export const state = reactive({
   projects: [] as Project[],
@@ -43,6 +44,7 @@ export function context(id: string): ProjectState {
       loaded: false,
       version: 0,
       messageVersion: 0,
+      recommendationVersion: 0,
     };
   return state.contexts[id]!;
 }
@@ -60,6 +62,10 @@ export async function loadProject(id: string, force = false) {
   if (p.loaded && !force) return;
   const version = ++p.version;
   const messageVersion = p.messageVersion;
+  const recommendationVersion = p.recommendationVersion;
+  const description = p.description,
+    role = p.role;
+  let complete = true;
   p.loading = true;
   p.error = "";
   p.recommendationError = "";
@@ -70,6 +76,7 @@ export async function loadProject(id: string, force = false) {
         if (p.version === version) p.documents = value;
       })
       .catch((e) => {
+        complete = false;
         if (p.version === version) p.error = errorText(e);
       }),
     api
@@ -79,26 +86,38 @@ export async function loadProject(id: string, force = false) {
           p.messages = value;
       })
       .catch((e) => {
-        if (p.version === version) p.error = errorText(e);
+        complete = false;
+        if (p.version === version && p.messageVersion === messageVersion)
+          p.error = errorText(e);
       }),
     api
       .recommendations(id)
       .then((value) => {
-        if (p.version === version) {
+        if (
+          p.version === version &&
+          p.recommendationVersion === recommendationVersion
+        ) {
           p.recommendations = value;
           if (!p.loaded && value) {
-            p.description = value.description;
-            p.role = value.target_role;
+            if (!description && p.description === description)
+              p.description = value.description;
+            if (role === "通用项目面试" && p.role === role)
+              p.role = value.target_role;
           }
         }
       })
       .catch((e) => {
-        if (p.version === version) p.recommendationError = errorText(e);
+        complete = false;
+        if (
+          p.version === version &&
+          p.recommendationVersion === recommendationVersion
+        )
+          p.recommendationError = errorText(e);
       }),
   ]);
   if (p.version === version) {
     p.loading = false;
-    p.loaded = true;
+    p.loaded = complete;
   }
 }
 export function selectProject(id: string) {
@@ -147,6 +166,8 @@ export async function sendQuestion(id: string, question: string) {
     p.error = errorText(e);
     p.draft = text;
   }
+  // Invalidate reads that started while the paid operation was in flight.
+  p.messageVersion++;
   try {
     p.messages = await api.messages(id);
   } catch (e) {
@@ -161,11 +182,89 @@ export async function generateQuestions(id: string) {
   if (p.task) return;
   p.task = "正在生成个性化问题…";
   p.recommendationError = "";
+  p.recommendationVersion++;
   try {
     p.recommendations = await api.generate(id, p.description, p.role);
   } catch (e) {
     p.recommendationError = errorText(e);
   } finally {
+    p.recommendationVersion++;
     p.task = "";
   }
+}
+
+export async function clearMessages(id: string) {
+  const p = context(id);
+  if (p.task) return false;
+  p.task = "正在清空当前项目聊天…";
+  p.error = "";
+  p.messageVersion++;
+  try {
+    await api.clear(id);
+    p.messages = [];
+    return true;
+  } catch (e) {
+    p.error = errorText(e);
+    return false;
+  } finally {
+    p.messageVersion++;
+    p.task = "";
+  }
+}
+
+async function documentTask<T>(
+  id: string,
+  task: string,
+  action: (p: ProjectState) => Promise<T>,
+) {
+  const p = context(id);
+  if (p.task) return;
+  p.task = task;
+  p.error = "";
+  try {
+    return await action(p);
+  } catch (e) {
+    p.error = errorText(e);
+  } finally {
+    const error = p.error;
+    // Keep the operation locked until its refreshed snapshot is installed.
+    await loadProject(id, true);
+    if (error) p.error = error;
+    p.task = "";
+  }
+}
+
+export function uploadDocuments(id: string, files: File[]) {
+  const batch = [...files];
+  if (!batch.length) return;
+  return documentTask(id, "正在保存上传文件…", async (p) => {
+    let feedback = "";
+    for (let i = 0; i < batch.length; i++) {
+      p.task = `保存文件 ${i + 1}/${batch.length}`;
+      const result = await api.upload(id, batch[i]!);
+      feedback =
+        result.action === "duplicate"
+          ? "相同内容已存在，未重复导入。"
+          : "文件已保存，尚未发送 Embedding 请求。";
+    }
+    return feedback;
+  });
+}
+
+export function indexDocuments(id: string, documentIds: string[]) {
+  const docs = [...documentIds];
+  if (!docs.length) return;
+  return documentTask(id, "正在建立索引…", async (p) => {
+    let failures = 0;
+    for (let i = 0; i < docs.length; i++) {
+      p.task = `正在建立索引 ${i + 1}/${docs.length}…`;
+      try {
+        await api.index(id, docs[i]!);
+      } catch (e) {
+        failures++;
+        p.error = errorText(e);
+      }
+    }
+    return failures;
+  });
 }

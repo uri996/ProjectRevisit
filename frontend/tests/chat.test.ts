@@ -5,7 +5,7 @@ import Chat from "../src/views/Chat.vue";
 import RecommendationPanel from "../src/components/RecommendationPanel.vue";
 import { api } from "../src/api";
 import { context, state } from "../src/store";
-import type { Recommendations } from "../src/types";
+import type { Answer, Recommendations } from "../src/types";
 
 let app: App, host: HTMLElement;
 beforeEach(() => {
@@ -35,8 +35,39 @@ const flush = async () => {
   await new Promise((r) => setTimeout(r, 0));
   await nextTick();
 };
+it("guards an empty project without submitting any request", async () => {
+  state.selected = "";
+  vi.spyOn(api, "ask");
+  vi.spyOn(api, "generate");
+  app = createApp(Chat);
+  app.mount(host);
+  await nextTick();
+  expect(host.textContent).toContain("请先在左侧创建项目");
+  expect(host.querySelector("textarea")).toBeNull();
+  expect(api.ask).not.toHaveBeenCalled();
+  expect(api.generate).not.toHaveBeenCalled();
+});
+it("keeps preset directions available without keys or automatic model requests", async () => {
+  vi.spyOn(api, "ask");
+  vi.spyOn(api, "generate");
+  app = createApp(RecommendationPanel);
+  app.mount(host);
+  await nextTick();
+  const direction = Array.from(host.querySelectorAll("button")).find(
+    (button) => button.textContent?.trim() === "面试准备",
+  )!;
+  direction.click();
+  await nextTick();
+  expect(host.textContent).toContain("请介绍虚构项目");
+  expect(api.ask).not.toHaveBeenCalled();
+  expect(api.generate).not.toHaveBeenCalled();
+});
 it("does not send during Chinese IME composition or a repeated Enter key", async () => {
-  vi.spyOn(api, "ask").mockResolvedValue({});
+  vi.spyOn(api, "ask").mockResolvedValue({
+    answer: "演示回答",
+    status: "completed",
+    citations: [],
+  });
   vi.spyOn(api, "messages").mockResolvedValue([]);
   context("a").draft = "虚构项目问题";
   app = createApp(Chat);
@@ -71,7 +102,7 @@ it("does not send during Chinese IME composition or a repeated Enter key", async
   expect(api.ask).toHaveBeenCalledTimes(1);
 });
 it("clicking a recommendation immediately displays a pending question and disables repeated clicks", async () => {
-  let finish!: (v: unknown) => void;
+  let finish!: (v: Answer) => void;
   vi.spyOn(api, "ask").mockImplementation(
     () =>
       new Promise((r) => {
@@ -96,7 +127,7 @@ it("clicking a recommendation immediately displays a pending question and disabl
   expect(button.disabled).toBe(true);
   button.click();
   expect(api.ask).toHaveBeenCalledTimes(1);
-  finish({});
+  finish({ answer: "演示回答", status: "completed", citations: [] });
   await flush();
   expect(button.disabled).toBe(false);
 });

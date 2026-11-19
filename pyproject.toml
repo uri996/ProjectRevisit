@@ -9,7 +9,7 @@ description = "Local project knowledge retrieval and interview review"
 requires-python = ">=3.12,<3.14"
 dependencies = [
   "fastapi>=0.115,<1", "uvicorn>=0.34,<1", "python-multipart>=0.0.20,<1",
-  "streamlit>=1.45,<2", "langchain-chroma>=0.2.5,<2",
+  "langchain-chroma>=0.2.5,<2",
   "langchain-text-splitters>=0.3.8,<2", "openai>=1.80,<3",
   "keyring>=25,<26", "platformdirs>=4,<5", "filelock>=3.18,<4", "httpx>=0.28,<1"
 ]
@@ -18,7 +18,7 @@ dependencies = [
 dev = ["pytest>=8,<10", "ruff>=0.11,<1"]
 
 [tool.setuptools.packages.find]
-include = ["backend*", "ui*"]
+include = ["backend*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -1,4 +1,7 @@
 import type {
+  Answer,
+  UploadResult,
+  IndexResult,
   Document,
   Message,
   Project,
@@ -29,10 +32,17 @@ async function request<T>(
   } catch {
     throw new Error("无法连接本机服务。请检查启动窗口；请求不会自动重发。");
   }
-  const data = await response.json().catch(() => ({}));
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error(
+      "本机服务返回了无效响应，请刷新状态后手动重试；请求不会自动重发。",
+    );
+  }
   if (!response.ok)
     throw new Error(
-      typeof data.error === "string"
+      data && typeof data.error === "string"
         ? data.error
         : "请求失败，请检查输入或稍后手动重试。",
     );
@@ -49,26 +59,26 @@ export const api = {
   upload: (id: string, file: File) => {
     const form = new FormData();
     form.append("file", file);
-    return request<{ action: string }>(
-      `${projectPath(id)}/documents`,
-      "POST",
-      form,
-    );
+    return request<UploadResult>(`${projectPath(id)}/documents`, "POST", form);
   },
   index: (id: string, doc: string) =>
-    request(
+    request<IndexResult>(
       `${projectPath(id)}/documents/${encodeURIComponent(doc)}/index`,
       "POST",
       operation(),
     ),
   messages: (id: string) => request<Message[]>(`${projectPath(id)}/messages`),
   ask: (id: string, question: string) =>
-    request(`${projectPath(id)}/questions`, "POST", {
+    request<Answer>(`${projectPath(id)}/questions`, "POST", {
       ...operation(),
       question,
     }),
   clear: (id: string) =>
-    request(`${projectPath(id)}/messages`, "DELETE", operation()),
+    request<{ status: string }>(
+      `${projectPath(id)}/messages`,
+      "DELETE",
+      operation(),
+    ),
   presets: () => request<Record<string, string[]>>("/recommendations/presets"),
   recommendations: (id: string) =>
     request<Recommendations | null>(`${projectPath(id)}/recommendations`),

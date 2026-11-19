@@ -112,7 +112,7 @@ def forbid_network(monkeypatch):
 
     def blocked(*args, **kwargs):
         address = args[1] if len(args) > 1 else None
-        # Windows asyncio uses a local socketpair even in Streamlit's in-process tests.
+        # Windows asyncio also needs local socketpairs in offline API tests.
         if isinstance(address, tuple) and address[0] in ("127.0.0.1", "::1"):
             return original_connect(*args, **kwargs)
         raise AssertionError("Network is forbidden in offline tests")

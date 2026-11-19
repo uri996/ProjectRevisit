@@ -8,12 +8,12 @@ import {
   watch,
 } from "vue";
 import type { ComponentPublicInstance } from "vue";
-import type { Citation } from "../types";
+import SourceEvidence from "../components/SourceEvidence.vue";
+import { formatMessageTime } from "../presentation";
 import RecommendationPanel from "../components/RecommendationPanel.vue";
 import MarkdownMessage from "../components/MarkdownMessage.vue";
 import ConversationLocator from "../components/ConversationLocator.vue";
-import { api } from "../api";
-import { context, current, errorText, sendQuestion, state } from "../store";
+import { clearMessages, current, sendQuestion, state } from "../store";
 const recommendationsOpen = ref(window.innerWidth >= 1100),
   viewport = ref<HTMLElement | null>(null),
   stick = ref(true),
@@ -120,42 +120,10 @@ watch(
 );
 onMounted(latest);
 async function clear() {
-  const id = state.selected,
-    p = context(id);
-  if (p.task || !clearConfirm.value) return;
-  p.messageVersion++;
-  p.task = "正在清空当前项目聊天…";
-  try {
-    await api.clear(id);
-    p.messages = [];
+  if (!clearConfirm.value) return;
+  const id = state.selected;
+  if ((await clearMessages(id)) && state.selected === id)
     clearConfirm.value = false;
-  } catch (e) {
-    p.error = errorText(e);
-  } finally {
-    p.task = "";
-  }
-}
-const time = (value: string) => {
-  const d = new Date(value);
-  return Number.isNaN(d.getTime())
-    ? "时间未知"
-    : d.toLocaleString("zh-CN", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      });
-};
-function sourceLabel(citation: Citation) {
-  if (citation.reference == null)
-    return citation.cited ? "模型标记支持（旧回答）" : "旧检索上下文";
-  if (citation.cited)
-    return citation.analysis_basis ? "事实来源 / 分析依据" : "支持对应事实段落";
-  return citation.analysis_basis
-    ? "仅作为分析依据，不证明建议已实施"
-    : "仅检索上下文，未用于结论";
 }
 </script>
 <template>
@@ -266,7 +234,7 @@ function sourceLabel(citation: Citation) {
           <div class="message-body">
             <div class="message-meta">
               {{ message.role === "user" ? "你" : "ProjectRevisit"
-              }}<time>{{ time(message.created_at) }}</time
+              }}<time>{{ formatMessageTime(message.created_at) }}</time
               ><span v-if="message.status === 'failed'" class="error-text"
                 >失败</span
               ><span v-else-if="message.status === 'insufficient'"
@@ -278,37 +246,7 @@ function sourceLabel(citation: Citation) {
               :content="message.content"
             />
             <div v-else class="message-content">{{ message.content }}</div>
-            <details v-if="message.citations.length" class="citations">
-              <summary>来源证据 · {{ message.citations.length }} 条</summary>
-              <section
-                v-for="(citation, citationIndex) in message.citations"
-                :key="citation.chunk_id"
-                class="citation"
-              >
-                <span class="badge"
-                  >资料 {{ citation.reference ?? citationIndex + 1 }}</span
-                >
-                <strong>{{ citation.source }}</strong>
-                <p class="muted small">
-                  {{ citation.heading || "无章节标题" }} ·
-                  {{ sourceLabel(citation) }}
-                </p>
-                <div
-                  v-if="citation.supporting_quotes?.length"
-                  class="supporting-quotes"
-                >
-                  <span class="muted small">本次引用原文</span>
-                  <p v-for="quote in citation.supporting_quotes" :key="quote">
-                    {{ quote }}
-                  </p>
-                </div>
-                <blockquote>{{ citation.text }}</blockquote>
-                <details>
-                  <summary class="small">完整 Chunk ID</summary>
-                  <code>{{ citation.chunk_id }}</code>
-                </details>
-              </section>
-            </details>
+            <SourceEvidence :citations="message.citations" />
           </div>
         </article>
         <article v-if="current.pending" class="message user pending">

@@ -18,9 +18,7 @@ def main():
         with socket.socket() as sock:
             sock.bind(("127.0.0.1", 0))
             port = sock.getsockname()[1]
-        env = dict(
-            os.environ, PROJECT_RAG_DATA_DIR=temp, STREAMLIT_BROWSER_GATHER_USAGE_STATS="false"
-        )
+        env = dict(os.environ, PROJECT_RAG_DATA_DIR=temp)
         process = subprocess.Popen(
             [
                 sys.executable,

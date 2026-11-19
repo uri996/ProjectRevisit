@@ -30,7 +30,6 @@ from backend.api.security import RequestSizeLimit
 from backend.models import AISettings, AppError
 from backend.services.application import create_application
 from backend.services.recommendation_service import PRESET_QUESTIONS
-from backend.storage.files import MAX_BYTES
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -126,7 +125,7 @@ def create_api(application=None, frontend=None, port=None):
     @api.post("/api/projects/{project_id}/documents", response_model=UploadResult)
     async def upload(project_id: UUID, file: UploadFile):
         try:
-            content = await file.read(MAX_BYTES + 1)
+            content = await file.read(services().documents.max_upload_bytes + 1)
             return await run_in_threadpool(
                 services().documents.upload, str(project_id), file.filename or "", content
             )
@@ -189,17 +188,7 @@ def create_api(application=None, frontend=None, port=None):
 
     @api.get("/api/settings", response_model=SettingsView)
     def settings():
-        warning = None
-        try:
-            current = services().settings.load()
-        except AppError:
-            current = AISettings()
-            warning = "本地配置无效，已显示默认值供修复；保存前不会覆盖原配置。"
-        return {
-            "settings": current.to_dict(),
-            "key_status": services().settings.key_status(current),
-            "warning": warning,
-        }
+        return services().settings.view()
 
     @api.put("/api/settings", response_model=SettingsView)
     def save_settings(body: SaveSettings):

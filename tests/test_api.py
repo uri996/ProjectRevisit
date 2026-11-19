@@ -244,3 +244,26 @@ def test_settings_can_be_repaired_without_implicitly_overwriting_invalid_config(
         == 200
     )
     assert client.get("/api/settings").json()["warning"] is None
+
+def test_optional_recommendations_and_bad_settings_do_not_block_history(client, configured):
+    client, app = client
+    _, _, keys, _ = configured
+    project = create(client)
+    keys.values.clear()
+    asked = client.post(
+        f"/api/projects/{project}/questions", json=operation(question="虚构离线复盘问题")
+    )
+    assert asked.status_code == 200
+    saved = client.get(f"/api/projects/{project}/messages").json()
+    app.qa.db.save_recommendations(project, "虚构目录", "后端开发", [])
+    app.qa.db.execute(
+        "UPDATE question_recommendations SET questions=? WHERE project_id=?",
+        ("synthetic invalid JSON", project),
+    )
+    app.settings.path.write_text("synthetic invalid JSON", encoding="utf-8")
+    assert client.get(f"/api/projects/{project}/recommendations").status_code == 400
+    assert client.get(f"/api/projects/{project}/messages").json() == saved
+    assert client.get(f"/api/projects/{project}/documents").status_code == 200
+    assert client.get("/api/settings").json()["warning"]
+    assert client.get("/api/health").status_code == 200
+    assert client.get("/api/recommendations/presets").status_code == 200

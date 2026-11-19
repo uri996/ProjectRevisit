@@ -1,1 +1,1 @@
-"""Streamlit-independent backend."""
+"""Framework-independent application services, retrieval and storage."""

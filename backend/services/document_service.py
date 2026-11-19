@@ -6,10 +6,12 @@ from backend.rag.chunker import split_document
 from backend.rag.loader import load_text
 from backend.services.locking import project_lock
 from backend.storage.database import now
-from backend.storage.files import validate_upload
+from backend.storage.files import MAX_BYTES, validate_upload
 
 
 class DocumentService:
+    max_upload_bytes = MAX_BYTES
+
     def __init__(self, root, db, files, vectors, settings):
         self.root, self.db, self.files = root, db, files
         self.vectors, self.settings = vectors, settings
