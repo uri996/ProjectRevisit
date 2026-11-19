@@ -10,10 +10,10 @@ if not exist ".venv\Scripts\python.exe" (
   pause
   exit /b 1
 )
-echo Open: http://127.0.0.1:8765
+echo The browser opens once the local HTTP health check succeeds.
 echo Keep this window open. Press Ctrl+C to stop.
 echo.
-".venv\Scripts\python.exe" scripts/launch_windows.py
+".venv\Scripts\python.exe" scripts/launch_windows.py %*
 set "RAG_EXIT_CODE=%ERRORLEVEL%"
 echo.
 if not "%RAG_EXIT_CODE%"=="0" echo Startup exited with error code %RAG_EXIT_CODE%. See details above.

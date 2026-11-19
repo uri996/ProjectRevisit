@@ -58,10 +58,11 @@ def test_new_launcher_help_and_loopback_health_without_frontend_dependency(tmp_p
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows CMD startup behavior")
-def test_batch_launcher_keeps_install_failure_visible(tmp_path):
+@pytest.mark.parametrize("filename", ["start.bat", "dev.bat"])
+def test_batch_launcher_keeps_install_failure_visible(tmp_path, filename):
     root = Path(__file__).resolve().parents[1]
-    batch = tmp_path / "start.bat"
-    batch.write_bytes((root / "start.bat").read_bytes())
+    batch = tmp_path / filename
+    batch.write_bytes((root / filename).read_bytes())
     result = subprocess.run(
         ["cmd.exe", "/d", "/c", str(batch)],
         input=b"\r\n",
